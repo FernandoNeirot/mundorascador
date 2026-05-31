@@ -15,6 +15,39 @@ const inputClassName =
 const labelClassName =
   "flex flex-col gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300";
 
+const detailLabelClassName =
+  "text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
+
+const detailValueClassName =
+  "text-sm text-zinc-900 dark:text-zinc-50";
+
+function ProductDetails({ product }: { product: QuoteProductOption }) {
+  const unitShort = product.quantityUnit === "metros" ? "m" : "u";
+  const unitLong = product.quantityUnit === "metros" ? "metro" : "unidad";
+
+  return (
+    <dl className="grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 sm:grid-cols-3 dark:border-zinc-800 dark:bg-zinc-900/40">
+      <div className="flex flex-col gap-1">
+        <dt className={detailLabelClassName}>Tipo</dt>
+        <dd className={detailValueClassName}>{product.materialLabel}</dd>
+      </div>
+      <div className="flex flex-col gap-1 sm:col-span-2">
+        <dt className={detailLabelClassName}>Detalle</dt>
+        <dd className={detailValueClassName}>{product.details}</dd>
+      </div>
+      <div className="flex flex-col gap-1">
+        <dt className={detailLabelClassName}>Precio unitario</dt>
+        <dd className={`${detailValueClassName} tabular-nums`}>
+          {formatPrice(product.unitPrice)}/{unitShort}
+        </dd>
+        <dd className="text-xs text-zinc-500 dark:text-zinc-400">
+          Por {unitLong}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
 type QuoteLine = {
   id: string;
   productKey: string;
@@ -127,8 +160,8 @@ export default function Cotizador({
                     )}
                   </div>
 
-                  <div className="grid gap-4 lg:grid-cols-4">
-                    <label className={`${labelClassName} lg:col-span-2`}>
+                  <div className="flex flex-col gap-4">
+                    <label className={labelClassName}>
                       Descripción
                       <select
                         value={line.productKey}
@@ -141,46 +174,42 @@ export default function Cotizador({
                       >
                         {products.map((option) => (
                           <option key={option.key} value={option.key}>
-                            {option.descripcion} — {option.label} ·{" "}
-                            {formatPrice(option.unitPrice)}/
-                            {option.quantityUnit === "metros" ? "m" : "u"}
+                            {option.descripcion}
                           </option>
                         ))}
                       </select>
                     </label>
 
-                    <label className={labelClassName}>
-                      Cantidad usada ({product?.quantityUnit ?? "unidades"})
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="any"
-                        value={line.quantityUsed}
-                        onChange={(event) =>
-                          updateLine(line.id, {
-                            quantityUsed: event.target.value,
-                          })
-                        }
-                        placeholder="0"
-                        className={inputClassName}
-                      />
-                    </label>
+                    {product && <ProductDetails product={product} />}
 
-                    <label className={labelClassName}>
-                      Costo
-                      <input
-                        type="text"
-                        readOnly
-                        value={lineCost > 0 ? formatPrice(lineCost) : "—"}
-                        className={`${inputClassName} cursor-not-allowed bg-zinc-50 dark:bg-zinc-900/60`}
-                      />
-                      {product && (
-                        <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                          {formatPrice(product.unitPrice)} por{" "}
-                          {product.quantityUnit === "metros" ? "metro" : "unidad"}
-                        </span>
-                      )}
-                    </label>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className={labelClassName}>
+                        Cantidad usada ({product?.quantityUnit ?? "unidades"})
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          value={line.quantityUsed}
+                          onChange={(event) =>
+                            updateLine(line.id, {
+                              quantityUsed: event.target.value,
+                            })
+                          }
+                          placeholder="0"
+                          className={inputClassName}
+                        />
+                      </label>
+
+                      <label className={labelClassName}>
+                        Costo
+                        <input
+                          type="text"
+                          readOnly
+                          value={lineCost > 0 ? formatPrice(lineCost) : "—"}
+                          className={`${inputClassName} cursor-not-allowed bg-zinc-50 dark:bg-zinc-900/60`}
+                        />
+                      </label>
+                    </div>
                   </div>
                 </div>
               );

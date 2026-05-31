@@ -5,6 +5,8 @@ import type { StockEntry } from "./types";
 export type QuoteProductOption = {
   key: string;
   descripcion: string;
+  materialLabel: string;
+  details: string;
   label: string;
   unitPrice: number;
   quantityUnit: "metros" | "unidades";
@@ -77,6 +79,8 @@ export function buildQuoteProductOptions(
       return {
         key,
         descripcion,
+        materialLabel: MATERIAL_CONFIG[sample.type].label,
+        details,
         label: `${MATERIAL_CONFIG[sample.type].label} · ${details}`,
         unitPrice: weightedUnitPrice(groupEntries),
         quantityUnit,
