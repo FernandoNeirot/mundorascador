@@ -13,7 +13,7 @@ export default async function AdminStockPage() {
   return (
     <StockManager
       initialEntries={entries}
-      canWrite={canWriteStock(session.role)}
+      canWrite={canWriteStock(session)}
     />
   );
 }

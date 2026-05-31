@@ -19,6 +19,7 @@ type BaseStockEntry = {
   updatedAt: string;
   price: number;
   quantity: number;
+  cantidadUsada: number;
   compradoPor: BuyerType;
 };
 
@@ -75,6 +76,7 @@ export type StockEntry =
 type CreateStockBase = {
   price: number;
   quantity: number;
+  cantidadUsada?: number;
   compradoPor: BuyerType;
 };
 

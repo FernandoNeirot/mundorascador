@@ -106,6 +106,35 @@ function parseHiloInput(
   };
 }
 
+function parseCantidadUsada(
+  value: unknown,
+  quantity: number,
+): number | { error: string } {
+  if (value === undefined || value === null) {
+    return 0;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return { error: "La cantidad usada debe ser 0 o mayor" };
+  }
+  if (value > quantity) {
+    return {
+      error: "La cantidad usada no puede superar la cantidad en stock",
+    };
+  }
+  return value;
+}
+
+function finalizeInput(
+  data: CreateStockEntryInput,
+  record: Record<string, unknown>,
+): ValidationResult {
+  const cantidadUsada = parseCantidadUsada(record.cantidadUsada, data.quantity);
+  if (typeof cantidadUsada === "object") {
+    return { ok: false, error: cantidadUsada.error };
+  }
+  return { ok: true, data: { ...data, cantidadUsada } };
+}
+
 export function validateCreateStockEntry(body: unknown): ValidationResult {
   if (!body || typeof body !== "object") {
     return { ok: false, error: "Datos inválidos" };
@@ -138,7 +167,7 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
     if ("error" in fabric) {
       return { ok: false, error: fabric.error };
     }
-    return { ok: true, data: fabric };
+    return finalizeInput(fabric, record);
   }
 
   if (type === "hilo") {
@@ -146,7 +175,7 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
     if ("error" in hilo) {
       return { ok: false, error: hilo.error };
     }
-    return { ok: true, data: hilo };
+    return finalizeInput(hilo, record);
   }
 
   if (type === "maderas") {
@@ -171,9 +200,8 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
       return { ok: false, error: "Tipo de madera inválido" };
     }
 
-    return {
-      ok: true,
-      data: {
+    return finalizeInput(
+      {
         type: "maderas",
         anchoCm,
         largoCm,
@@ -182,7 +210,8 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
         tipoMadera: tipoMadera as WoodType,
         compradoPor,
       },
-    };
+      record,
+    );
   }
 
   if (type === "herramientas") {
@@ -196,16 +225,16 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
       return { ok: false, error: "La cantidad debe ser mayor a 0" };
     }
 
-    return {
-      ok: true,
-      data: {
+    return finalizeInput(
+      {
         type: "herramientas",
         descripcion,
         quantity,
         price,
         compradoPor,
       },
-    };
+      record,
+    );
   }
 
   if (type === "cano_pvc") {
@@ -219,9 +248,8 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
       return { ok: false, error: "El largo debe ser mayor a 100 cm" };
     }
 
-    return {
-      ok: true,
-      data: {
+    return finalizeInput(
+      {
         type: "cano_pvc",
         anchoMm,
         largoCm,
@@ -229,7 +257,8 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
         price,
         compradoPor,
       },
-    };
+      record,
+    );
   }
 
   return { ok: false, error: "Tipo de material inválido" };

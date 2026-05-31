@@ -1,5 +1,5 @@
 import { MATERIAL_CONFIG, isMeterBasedType } from "./constants";
-import { formatEntryDetails, getUnitPrice } from "./format";
+import { calculateTotalPrice, formatEntryDetails, getUnitPrice } from "./format";
 import type { StockEntry } from "./types";
 
 export type QuoteProductOption = {
@@ -44,7 +44,7 @@ function weightedUnitPrice(entries: StockEntry[]): number {
   if (totalQuantity <= 0) return getUnitPrice(entries[0]);
 
   const totalCost = entries.reduce(
-    (sum, entry) => sum + entry.quantity * getUnitPrice(entry),
+    (sum, entry) => sum + calculateTotalPrice(entry),
     0,
   );
   return totalCost / totalQuantity;

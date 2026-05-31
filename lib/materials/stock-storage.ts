@@ -18,6 +18,7 @@ function buildEntry(
     updatedAt,
     price: input.price,
     quantity: input.quantity,
+    cantidadUsada: input.cantidadUsada ?? 0,
     compradoPor: input.compradoPor,
   };
 
@@ -93,6 +94,13 @@ function docToEntry(id: string, data: DocumentData): StockEntry | null {
     !normalized.descripcion
   ) {
     normalized.descripcion = normalized.marca;
+  }
+
+  if (
+    normalized.cantidadUsada === undefined ||
+    normalized.cantidadUsada === null
+  ) {
+    normalized.cantidadUsada = 0;
   }
 
   const entry = { id, ...normalized };

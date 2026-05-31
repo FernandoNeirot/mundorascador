@@ -19,7 +19,7 @@ export async function requireWriteSession(): Promise<
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
 
-  if (!canWriteStock(session.role)) {
+  if (!canWriteStock(session)) {
     return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
   }
 

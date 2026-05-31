@@ -69,7 +69,7 @@ export async function middleware(request: NextRequest) {
       request.method === "PUT" ||
       request.method === "DELETE";
 
-    if (isWriteMethod && !canWriteStock(session.role)) {
+    if (isWriteMethod && !canWriteStock(session)) {
       return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
     }
   }

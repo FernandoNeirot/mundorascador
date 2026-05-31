@@ -1,5 +1,5 @@
-import { WOOD_TYPE_CONFIG, isMeterBasedEntry } from "./constants";
-import type { StockEntry } from "./types";
+import { isMeterBasedType, WOOD_TYPE_CONFIG } from "./constants";
+import type { MaterialType, StockEntry } from "./types";
 
 const AR_TIMEZONE = "America/Argentina/Buenos_Aires";
 
@@ -29,16 +29,21 @@ export const formatDate = (iso: string): string => {
   return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}`;
 };
 
-/** Precio de una unidad en stock (pieza de tela, tabla, caño, etc.). */
-export const getUnitPrice = (entry: StockEntry): number => {
-  if (isMeterBasedEntry(entry)) {
-    return entry.price * (entry.largoCm / 100);
-  }
-  return entry.price;
-};
+/** Precio por unidad de medida del material (por metro, por pieza, etc.). */
+export const getUnitPrice = (entry: StockEntry): number => entry.price;
 
+/** Inversión total de un registro: cantidad × precio unitario. */
 export const calculateTotalPrice = (entry: StockEntry): number =>
-  entry.quantity * getUnitPrice(entry);
+  entry.quantity * entry.price;
+
+export const getCantidadUsada = (entry: StockEntry): number =>
+  entry.cantidadUsada ?? 0;
+
+export const getRemainingQuantity = (entry: StockEntry): number =>
+  entry.quantity - getCantidadUsada(entry);
+
+export const getQuantityUnitShort = (type: MaterialType): "m" | "u" =>
+  isMeterBasedType(type) ? "m" : "u";
 
 export const formatEntryDetails = (entry: StockEntry): string => {
   switch (entry.type) {

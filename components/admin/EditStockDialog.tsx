@@ -47,6 +47,7 @@ export default function EditStockDialog({
   const [color, setColor] = useState("");
   const [tipoMadera, setTipoMadera] = useState<WoodType>("pino");
   const [anchoMm, setAnchoMm] = useState("");
+  const [cantidadUsada, setCantidadUsada] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +64,7 @@ export default function EditStockDialog({
     setColor("");
     setAnchoMm("");
     setTipoMadera("pino");
+    setCantidadUsada("0");
 
     switch (entry.type) {
       case "telas":
@@ -94,6 +96,8 @@ export default function EditStockDialog({
         setQuantity(String(entry.quantity));
         break;
     }
+
+    setCantidadUsada(String(entry.cantidadUsada ?? 0));
   }, [entry]);
 
   useEffect(() => {
@@ -117,6 +121,22 @@ export default function EditStockDialog({
     const parsed = Number(value);
     if (!isValidLengthCm(parsed)) {
       setError(`${label} debe ser un número mayor a 100 cm.`);
+      return null;
+    }
+    return parsed;
+  };
+
+  const parseCantidadUsadaField = (
+    value: string,
+    maxQuantity: number,
+  ): number | null => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      setError("La cantidad usada debe ser 0 o mayor.");
+      return null;
+    }
+    if (parsed > maxQuantity) {
+      setError("La cantidad usada no puede superar la cantidad en stock.");
       return null;
     }
     return parsed;
@@ -151,11 +171,17 @@ export default function EditStockDialog({
     if (parsedPrice === null) return null;
     const parsedQuantity = resolveQuantity();
     if (parsedQuantity === null) return null;
+    const parsedCantidadUsada = parseCantidadUsadaField(
+      cantidadUsada,
+      parsedQuantity,
+    );
+    if (parsedCantidadUsada === null) return null;
 
     const base = {
       type: editType,
       price: parsedPrice,
       quantity: parsedQuantity,
+      cantidadUsada: parsedCantidadUsada,
       compradoPor,
     };
 
@@ -262,6 +288,17 @@ export default function EditStockDialog({
   const quantityLabel = isMeterBasedType(editType)
     ? "Cantidad (metros)"
     : "Cantidad";
+
+  const parsedQuantityPreview = Number(quantity);
+  const parsedUsedPreview = Number(cantidadUsada);
+  const remainingPreview =
+    Number.isFinite(parsedQuantityPreview) && Number.isFinite(parsedUsedPreview)
+      ? Math.max(0, parsedQuantityPreview - parsedUsedPreview)
+      : null;
+
+  const usedQuantityLabel = isMeterBasedType(editType)
+    ? "Cantidad usada (metros)"
+    : "Cantidad usada";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -507,6 +544,33 @@ export default function EditStockDialog({
                 value={price}
                 onChange={(event) => setPrice(event.target.value)}
                 className={inputClassName}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className={labelClassName}>
+              {usedQuantityLabel}
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={cantidadUsada}
+                onChange={(event) => setCantidadUsada(event.target.value)}
+                className={inputClassName}
+              />
+            </label>
+            <label className={labelClassName}>
+              Stock restante
+              <input
+                type="text"
+                readOnly
+                value={
+                  remainingPreview === null
+                    ? "—"
+                    : remainingPreview.toLocaleString("es-AR")
+                }
+                className={readOnlyInputClassName}
               />
             </label>
           </div>

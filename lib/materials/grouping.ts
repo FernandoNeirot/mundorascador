@@ -1,10 +1,15 @@
-import { calculateTotalPrice } from "./format";
+import {
+  calculateTotalPrice,
+  getCantidadUsada,
+} from "./format";
 import type { StockEntry } from "./types";
 
 export type StockGroup = {
   key: string;
   entries: StockEntry[];
   totalQuantity: number;
+  totalCantidadUsada: number;
+  stockRestante: number;
   totalPrice: number;
 };
 
@@ -43,10 +48,21 @@ export function groupStockEntries(entries: StockEntry[]): StockGroup[] {
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       );
 
+      const totalQuantity = sorted.reduce(
+        (sum, entry) => sum + entry.quantity,
+        0,
+      );
+      const totalCantidadUsada = sorted.reduce(
+        (sum, entry) => sum + getCantidadUsada(entry),
+        0,
+      );
+
       return {
         key,
         entries: sorted,
-        totalQuantity: sorted.reduce((sum, entry) => sum + entry.quantity, 0),
+        totalQuantity,
+        totalCantidadUsada,
+        stockRestante: totalQuantity - totalCantidadUsada,
         totalPrice: sorted.reduce(
           (sum, entry) => sum + calculateTotalPrice(entry),
           0,
