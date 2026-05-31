@@ -16,11 +16,13 @@ import type { StockEntry } from "@/lib/materials/types";
 type StockInventoryTableProps = {
   entries: StockEntry[];
   onRefresh: () => Promise<void>;
+  canWrite: boolean;
 };
 
 export default function StockInventoryTable({
   entries,
   onRefresh,
+  canWrite,
 }: StockInventoryTableProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [editingEntry, setEditingEntry] = useState<StockEntry | null>(null);
@@ -138,13 +140,17 @@ export default function StockInventoryTable({
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-3">
-                          <button
-                            type="button"
-                            onClick={() => setEditingEntry(entry)}
-                            className="text-xs font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
-                          >
-                            Editar
-                          </button>
+                          {canWrite ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingEntry(entry)}
+                              className="text-xs font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
+                            >
+                              Editar
+                            </button>
+                          ) : (
+                            <span className="text-xs text-zinc-400">—</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -170,11 +176,13 @@ export default function StockInventoryTable({
         </table>
       </div>
 
-      <EditStockDialog
-        entry={editingEntry}
-        onClose={() => setEditingEntry(null)}
-        onSaved={onRefresh}
-      />
+      {canWrite && (
+        <EditStockDialog
+          entry={editingEntry}
+          onClose={() => setEditingEntry(null)}
+          onSaved={onRefresh}
+        />
+      )}
     </>
   );
 }

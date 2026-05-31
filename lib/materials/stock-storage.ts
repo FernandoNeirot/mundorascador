@@ -85,7 +85,10 @@ function docToEntry(id: string, data: DocumentData): StockEntry | null {
 export async function getStockEntries(): Promise<StockEntry[]> {
   const snapshot = await getCollection().get();
   const entries = snapshot.docs
-    .map((doc) => docToEntry(doc.id, doc.data()))
+    .map((doc) => {
+      const data = doc.data();
+      return data ? docToEntry(doc.id, data) : null;
+    })
     .filter((entry): entry is StockEntry => entry !== null);
 
   return entries.sort(
@@ -98,7 +101,9 @@ export async function getStockEntryById(
 ): Promise<StockEntry | null> {
   const doc = await getCollection().doc(id).get();
   if (!doc.exists) return null;
-  return docToEntry(doc.id, doc.data());
+  const data = doc.data();
+  if (!data) return null;
+  return docToEntry(doc.id, data);
 }
 
 export async function addStockEntry(

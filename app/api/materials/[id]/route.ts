@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireWriteSession } from "@/lib/auth/api";
 import {
   getStockEntryById,
   updateStockEntry,
@@ -10,6 +11,9 @@ type RouteContext = {
 };
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const session = await requireWriteSession();
+  if (session instanceof NextResponse) return session;
+
   const { id } = await context.params;
   let body: unknown;
 

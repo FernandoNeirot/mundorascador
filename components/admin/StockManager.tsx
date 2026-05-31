@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import StockInventoryTable from "@/components/admin/StockInventoryTable";
 import {
   BUYER_CONFIG,
@@ -56,8 +56,10 @@ const emptyHerramientaForm = {
 
 export default function StockManager({
   initialEntries,
+  canWrite,
 }: {
   initialEntries: StockEntry[];
+  canWrite: boolean;
 }) {
   const [entries, setEntries] = useState(initialEntries);
   const [esHerramienta, setEsHerramienta] = useState(false);
@@ -232,12 +234,13 @@ export default function StockManager({
           Stock e inversiones
         </h1>
         <p className="mt-2 max-w-2xl text-zinc-600 dark:text-zinc-400">
-          Cada carga genera un registro independiente. La tabla agrupa ítems
-          iguales y suma cantidades e inversiones, pero podés ver y editar cada
-          compra por separado.
+          {canWrite
+            ? "Cada carga genera un registro independiente. La tabla agrupa ítems iguales y suma cantidades e inversiones, pero podés ver y editar cada compra por separado."
+            : "Tenés acceso de solo lectura. Podés consultar el stock y las inversiones agrupadas."}
         </p>
       </header>
 
+      {canWrite && (
       <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-50">
           Cargar stock
@@ -623,6 +626,7 @@ export default function StockManager({
           </div>
         </form>
       </section>
+      )}
 
       <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <div className="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
@@ -637,7 +641,11 @@ export default function StockManager({
           </p>
         </div>
 
-        <StockInventoryTable entries={entries} onRefresh={refreshEntries} />
+        <StockInventoryTable
+          entries={entries}
+          onRefresh={refreshEntries}
+          canWrite={canWrite}
+        />
       </section>
     </div>
   );

@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
+import { requireSession, requireWriteSession } from "@/lib/auth/api";
 import { addStockEntry, getStockEntries } from "@/lib/materials/stock-storage";
 import { validateCreateStockEntry } from "@/lib/materials/validation";
 
 export async function GET() {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const entries = await getStockEntries();
   return NextResponse.json(entries);
 }
 
 export async function POST(request: Request) {
+  const session = await requireWriteSession();
+  if (session instanceof NextResponse) return session;
+
   let body: unknown;
 
   try {
