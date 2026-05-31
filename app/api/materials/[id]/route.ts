@@ -33,13 +33,6 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Registro no encontrado" }, { status: 404 });
   }
 
-  if (existing.type !== validation.data.type) {
-    return NextResponse.json(
-      { error: "No se puede cambiar el tipo del registro" },
-      { status: 400 },
-    );
-  }
-
   const entry = await updateStockEntry(id, validation.data);
   if (!entry) {
     return NextResponse.json({ error: "No se pudo actualizar" }, { status: 500 });

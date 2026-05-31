@@ -4,17 +4,27 @@ import { useEffect, useState } from "react";
 import {
   BUYER_CONFIG,
   BUYER_TYPES,
-  isFabricLikeEntry,
+  EDITABLE_MATERIAL_TYPES,
+  isFabricLikeType,
+  isMeterBasedType,
+  MATERIAL_CONFIG,
   WOOD_TYPE_CONFIG,
   WOOD_TYPES,
 } from "@/lib/materials/constants";
-import type { BuyerType, StockEntry, WoodType } from "@/lib/materials/types";
+import {
+  formatQuantityFromLength,
+  isValidLengthCm,
+  quantityFromLengthCm,
+} from "@/lib/materials/meter-based";
+import type { BuyerType, MaterialType, StockEntry, WoodType } from "@/lib/materials/types";
 
 const inputClassName =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
 
 const labelClassName =
   "flex flex-col gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300";
+
+const readOnlyInputClassName = `${inputClassName} cursor-not-allowed bg-zinc-50 dark:bg-zinc-900/60`;
 
 type EditStockDialogProps = {
   entry: StockEntry | null;
@@ -27,49 +37,70 @@ export default function EditStockDialog({
   onClose,
   onSaved,
 }: EditStockDialogProps) {
+  const [editType, setEditType] = useState<MaterialType>("telas");
   const [compradoPor, setCompradoPor] = useState<BuyerType>("fernando");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
-  const [marca, setMarca] = useState("");
+  const [descripcion, setDescripcion] = useState("");
   const [anchoCm, setAnchoCm] = useState("");
   const [largoCm, setLargoCm] = useState("");
   const [color, setColor] = useState("");
   const [tipoMadera, setTipoMadera] = useState<WoodType>("pino");
   const [anchoMm, setAnchoMm] = useState("");
-  const [descripcion, setDescripcion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!entry) return;
 
+    setEditType(entry.type);
     setCompradoPor(entry.compradoPor);
-    setQuantity(String(entry.quantity));
     setPrice(String(entry.price));
     setError(null);
+    setDescripcion("");
+    setAnchoCm("");
+    setLargoCm("");
+    setColor("");
+    setAnchoMm("");
+    setTipoMadera("pino");
 
     switch (entry.type) {
       case "telas":
       case "guata":
-        setMarca(entry.marca);
+        setDescripcion(entry.descripcion);
         setAnchoCm(String(entry.anchoCm));
         setLargoCm(String(entry.largoCm));
         setColor(entry.color);
+        setQuantity(formatQuantityFromLength(String(entry.largoCm)));
+        break;
+      case "hilo":
+        setDescripcion(entry.descripcion);
+        setLargoCm(String(entry.largoCm));
+        setQuantity(formatQuantityFromLength(String(entry.largoCm)));
         break;
       case "maderas":
         setAnchoCm(String(entry.anchoCm));
         setLargoCm(String(entry.largoCm));
         setTipoMadera(entry.tipoMadera);
+        setQuantity(String(entry.quantity));
         break;
       case "cano_pvc":
         setAnchoMm(String(entry.anchoMm));
         setLargoCm(String(entry.largoCm));
+        setQuantity(formatQuantityFromLength(String(entry.largoCm)));
         break;
       case "herramientas":
         setDescripcion(entry.descripcion);
+        setQuantity(String(entry.quantity));
         break;
     }
   }, [entry]);
+
+  useEffect(() => {
+    if (isMeterBasedType(editType)) {
+      setQuantity(formatQuantityFromLength(largoCm));
+    }
+  }, [editType, largoCm]);
 
   if (!entry) return null;
 
@@ -82,44 +113,90 @@ export default function EditStockDialog({
     return parsed;
   };
 
+  const parseLengthField = (value: string, label: string): number | null => {
+    const parsed = Number(value);
+    if (!isValidLengthCm(parsed)) {
+      setError(`${label} debe ser un número mayor a 100 cm.`);
+      return null;
+    }
+    return parsed;
+  };
+
+  const handleLargoChange = (value: string) => {
+    setLargoCm(value);
+  };
+
+  const handleTypeChange = (newType: MaterialType) => {
+    const wasMeterBased = isMeterBasedType(editType);
+    setEditType(newType);
+    setError(null);
+    if (isMeterBasedType(newType)) {
+      setQuantity(formatQuantityFromLength(largoCm));
+    } else if (wasMeterBased) {
+      setQuantity("1");
+    }
+  };
+
+  const resolveQuantity = (): number | null => {
+    if (isMeterBasedType(editType)) {
+      const parsedLargo = parseLengthField(largoCm, "El largo");
+      if (parsedLargo === null) return null;
+      return quantityFromLengthCm(parsedLargo);
+    }
+    return parseField(quantity, "La cantidad");
+  };
+
   const buildPayload = (): Record<string, unknown> | null => {
-    const parsedQuantity = parseField(quantity, "La cantidad");
-    if (parsedQuantity === null) return null;
     const parsedPrice = parseField(price, "El precio");
     if (parsedPrice === null) return null;
+    const parsedQuantity = resolveQuantity();
+    if (parsedQuantity === null) return null;
 
     const base = {
-      type: entry.type,
-      quantity: parsedQuantity,
+      type: editType,
       price: parsedPrice,
+      quantity: parsedQuantity,
       compradoPor,
     };
 
-    switch (entry.type) {
+    switch (editType) {
       case "telas":
       case "guata":
-        if (!marca.trim()) {
-          setError(`Ingresá la marca de la ${entry.type === "guata" ? "guata" : "tela"}.`);
+        if (!descripcion.trim()) {
+          setError(`Ingresá la descripción de la ${editType === "guata" ? "guata" : "tela"}.`);
           return null;
         }
         if (!color.trim()) {
-          setError(`Ingresá el color de la ${entry.type === "guata" ? "guata" : "tela"}.`);
+          setError(`Ingresá el color de la ${editType === "guata" ? "guata" : "tela"}.`);
           return null;
         }
         {
           const parsedAncho = parseField(anchoCm, "El ancho");
           if (parsedAncho === null) return null;
-          const parsedLargo = parseField(largoCm, "El largo");
+          const parsedLargo = parseLengthField(largoCm, "El largo");
           if (parsedLargo === null) return null;
           return {
             ...base,
-            type: entry.type,
-            marca: marca.trim(),
+            type: editType,
+            descripcion: descripcion.trim(),
             color: color.trim(),
             anchoCm: parsedAncho,
             largoCm: parsedLargo,
           };
         }
+      case "hilo": {
+        if (!descripcion.trim()) {
+          setError("Ingresá la descripción del hilo.");
+          return null;
+        }
+        const parsedLargo = parseLengthField(largoCm, "El largo");
+        if (parsedLargo === null) return null;
+        return {
+          ...base,
+          descripcion: descripcion.trim(),
+          largoCm: parsedLargo,
+        };
+      }
       case "maderas": {
         const parsedAncho = parseField(anchoCm, "El ancho");
         if (parsedAncho === null) return null;
@@ -135,7 +212,7 @@ export default function EditStockDialog({
       case "cano_pvc": {
         const parsedAncho = parseField(anchoMm, "El ancho");
         if (parsedAncho === null) return null;
-        const parsedLargo = parseField(largoCm, "El largo");
+        const parsedLargo = parseLengthField(largoCm, "El largo");
         if (parsedLargo === null) return null;
         return {
           ...base,
@@ -182,6 +259,10 @@ export default function EditStockDialog({
     }
   };
 
+  const quantityLabel = isMeterBasedType(editType)
+    ? "Cantidad (metros)"
+    : "Cantidad";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div
@@ -209,6 +290,23 @@ export default function EditStockDialog({
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className={labelClassName}>
+            Tipo de material
+            <select
+              value={editType}
+              onChange={(event) =>
+                handleTypeChange(event.target.value as MaterialType)
+              }
+              className={inputClassName}
+            >
+              {EDITABLE_MATERIAL_TYPES.map((materialType) => (
+                <option key={materialType} value={materialType}>
+                  {MATERIAL_CONFIG[materialType].label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className={labelClassName}>
             Quién compró
             <select
               value={compradoPor}
@@ -225,14 +323,14 @@ export default function EditStockDialog({
             </select>
           </label>
 
-          {isFabricLikeEntry(entry) && (
+          {isFabricLikeType(editType) && (
             <>
               <label className={labelClassName}>
-                Marca
+                Descripción
                 <input
                   type="text"
-                  value={marca}
-                  onChange={(event) => setMarca(event.target.value)}
+                  value={descripcion}
+                  onChange={(event) => setDescripcion(event.target.value)}
                   className={inputClassName}
                 />
               </label>
@@ -252,10 +350,10 @@ export default function EditStockDialog({
                   Largo (cm)
                   <input
                     type="number"
-                    min="0.01"
+                    min="101"
                     step="any"
                     value={largoCm}
-                    onChange={(event) => setLargoCm(event.target.value)}
+                    onChange={(event) => handleLargoChange(event.target.value)}
                     className={inputClassName}
                   />
                 </label>
@@ -272,7 +370,33 @@ export default function EditStockDialog({
             </>
           )}
 
-          {entry.type === "maderas" && (
+          {editType === "hilo" && (
+            <>
+              <label className={labelClassName}>
+                Descripción
+                <input
+                  type="text"
+                  value={descripcion}
+                  onChange={(event) => setDescripcion(event.target.value)}
+                  placeholder="Ej: Yute, Sisal"
+                  className={inputClassName}
+                />
+              </label>
+              <label className={labelClassName}>
+                Largo (cm)
+                <input
+                  type="number"
+                  min="101"
+                  step="any"
+                  value={largoCm}
+                  onChange={(event) => handleLargoChange(event.target.value)}
+                  className={inputClassName}
+                />
+              </label>
+            </>
+          )}
+
+          {editType === "maderas" && (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className={labelClassName}>
@@ -317,7 +441,7 @@ export default function EditStockDialog({
             </>
           )}
 
-          {entry.type === "cano_pvc" && (
+          {editType === "cano_pvc" && (
             <div className="grid gap-4 sm:grid-cols-2">
               <label className={labelClassName}>
                 Ancho (mm)
@@ -334,17 +458,17 @@ export default function EditStockDialog({
                 Largo (cm)
                 <input
                   type="number"
-                  min="0.01"
+                  min="101"
                   step="any"
                   value={largoCm}
-                  onChange={(event) => setLargoCm(event.target.value)}
+                  onChange={(event) => handleLargoChange(event.target.value)}
                   className={inputClassName}
                 />
               </label>
             </div>
           )}
 
-          {entry.type === "herramientas" && (
+          {editType === "herramientas" && (
             <label className={labelClassName}>
               Descripción
               <input
@@ -358,18 +482,24 @@ export default function EditStockDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className={labelClassName}>
-              Cantidad
+              {quantityLabel}
               <input
-                type="number"
-                min="1"
-                step="1"
+                type="text"
+                readOnly
                 value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
-                className={inputClassName}
+                placeholder={
+                  isMeterBasedType(editType) ? "Se calcula del largo" : undefined
+                }
+                className={readOnlyInputClassName}
               />
+              {isMeterBasedType(editType) && (
+                <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                  Largo ÷ 100 (1 metro = 100 cm).
+                </span>
+              )}
             </label>
             <label className={labelClassName}>
-              {isFabricLikeEntry(entry) ? "Precio por metro" : "Precio por unidad"}
+              {isMeterBasedType(editType) ? "Precio por metro" : "Precio por unidad"}
               <input
                 type="number"
                 min="0.01"

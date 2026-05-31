@@ -2,8 +2,6 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { ROLE_LABELS } from "@/lib/auth/constants";
-import type { UserRole } from "@/lib/auth/types";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -29,7 +27,6 @@ export default function LoginForm() {
 
       const data = (await response.json()) as {
         error?: string;
-        role?: UserRole;
       };
 
       if (!response.ok) {
@@ -94,17 +91,6 @@ export default function LoginForm() {
             {loading ? "Ingresando..." : "Ingresar"}
           </button>
         </form>
-
-        <div className="mt-6 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
-          <p className="font-medium text-zinc-700 dark:text-zinc-300">
-            Roles disponibles
-          </p>
-          <ul className="mt-2 space-y-1">
-            <li>{ROLE_LABELS.superadmin}: acceso total</li>
-            <li>{ROLE_LABELS.admin}: carga y edición</li>
-            <li>{ROLE_LABELS.readonly}: solo lectura</li>
-          </ul>
-        </div>
       </div>
     </div>
   );

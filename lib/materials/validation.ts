@@ -1,7 +1,12 @@
 import { ALL_STOCK_TYPES, BUYER_TYPES, WOOD_TYPES } from "./constants";
+import {
+  isValidLengthCm,
+  quantityFromLengthCm,
+} from "./meter-based";
 import type {
   BuyerType,
   CreateFabricLikeInput,
+  CreateHiloInput,
   CreateStockEntryInput,
   FabricLikeType,
   MaterialType,
@@ -36,38 +41,67 @@ function parseCompradoPor(value: unknown): BuyerType | null {
   return value as BuyerType;
 }
 
+function parseLengthCm(value: unknown): number | null {
+  const largoCm = parsePositiveNumber(value, "largo");
+  if (largoCm === null || !isValidLengthCm(largoCm)) {
+    return null;
+  }
+  return largoCm;
+}
+
 function parseFabricLikeInput(
   record: Record<string, unknown>,
   type: FabricLikeType,
   price: number,
   compradoPor: BuyerType,
 ): CreateFabricLikeInput | { error: string } {
-  const marca = parseNonEmptyString(record.marca);
+  const descripcion = parseNonEmptyString(record.descripcion);
   const color = parseNonEmptyString(record.color);
   const anchoCm = parsePositiveNumber(record.anchoCm, "ancho");
-  const largoCm = parsePositiveNumber(record.largoCm, "largo");
-  const quantity = parsePositiveNumber(record.quantity, "cantidad");
+  const largoCm = parseLengthCm(record.largoCm);
 
-  if (!marca) return { error: "La marca es obligatoria" };
+  if (!descripcion) return { error: "La descripción es obligatoria" };
   if (!color) return { error: "El color es obligatorio" };
   if (anchoCm === null) {
     return { error: "El ancho debe ser mayor a 0 cm" };
   }
   if (largoCm === null) {
-    return { error: "El largo debe ser mayor a 0 cm" };
-  }
-  if (quantity === null) {
-    return { error: "La cantidad debe ser mayor a 0" };
+    return { error: "El largo debe ser mayor a 100 cm" };
   }
 
   return {
     type,
-    marca,
+    descripcion,
     color,
     anchoCm,
     largoCm,
     price,
-    quantity,
+    quantity: quantityFromLengthCm(largoCm),
+    compradoPor,
+  };
+}
+
+function parseHiloInput(
+  record: Record<string, unknown>,
+  price: number,
+  compradoPor: BuyerType,
+): CreateHiloInput | { error: string } {
+  const descripcion = parseNonEmptyString(record.descripcion);
+  const largoCm = parseLengthCm(record.largoCm);
+
+  if (!descripcion) {
+    return { error: "La descripción es obligatoria" };
+  }
+  if (largoCm === null) {
+    return { error: "El largo debe ser mayor a 100 cm" };
+  }
+
+  return {
+    type: "hilo",
+    descripcion,
+    largoCm,
+    price,
+    quantity: quantityFromLengthCm(largoCm),
     compradoPor,
   };
 }
@@ -105,6 +139,14 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
       return { ok: false, error: fabric.error };
     }
     return { ok: true, data: fabric };
+  }
+
+  if (type === "hilo") {
+    const hilo = parseHiloInput(record, price, compradoPor);
+    if ("error" in hilo) {
+      return { ok: false, error: hilo.error };
+    }
+    return { ok: true, data: hilo };
   }
 
   if (type === "maderas") {
@@ -168,22 +210,25 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
 
   if (type === "cano_pvc") {
     const anchoMm = parsePositiveNumber(record.anchoMm, "ancho");
-    const largoCm = parsePositiveNumber(record.largoCm, "largo");
-    const quantity = parsePositiveNumber(record.quantity, "cantidad");
+    const largoCm = parseLengthCm(record.largoCm);
 
     if (anchoMm === null) {
       return { ok: false, error: "El ancho debe ser mayor a 0 mm" };
     }
     if (largoCm === null) {
-      return { ok: false, error: "El largo debe ser mayor a 0 cm" };
-    }
-    if (quantity === null) {
-      return { ok: false, error: "La cantidad debe ser mayor a 0" };
+      return { ok: false, error: "El largo debe ser mayor a 100 cm" };
     }
 
     return {
       ok: true,
-      data: { type: "cano_pvc", anchoMm, largoCm, quantity, price, compradoPor },
+      data: {
+        type: "cano_pvc",
+        anchoMm,
+        largoCm,
+        quantity: quantityFromLengthCm(largoCm),
+        price,
+        compradoPor,
+      },
     };
   }
 

@@ -1,4 +1,4 @@
-import { WOOD_TYPE_CONFIG, isFabricLikeEntry } from "./constants";
+import { WOOD_TYPE_CONFIG, isMeterBasedEntry } from "./constants";
 import type { StockEntry } from "./types";
 
 const AR_TIMEZONE = "America/Argentina/Buenos_Aires";
@@ -31,7 +31,7 @@ export const formatDate = (iso: string): string => {
 
 /** Precio de una unidad en stock (pieza de tela, tabla, caño, etc.). */
 export const getUnitPrice = (entry: StockEntry): number => {
-  if (isFabricLikeEntry(entry)) {
+  if (isMeterBasedEntry(entry)) {
     return entry.price * (entry.largoCm / 100);
   }
   return entry.price;
@@ -44,7 +44,9 @@ export const formatEntryDetails = (entry: StockEntry): string => {
   switch (entry.type) {
     case "telas":
     case "guata":
-      return `${entry.marca} · ${entry.anchoCm} × ${entry.largoCm} cm · ${entry.color}`;
+      return `${entry.descripcion} · ${entry.anchoCm} × ${entry.largoCm} cm · ${entry.color}`;
+    case "hilo":
+      return `${entry.descripcion} · ${entry.largoCm} cm`;
     case "maderas":
       return `${WOOD_TYPE_CONFIG[entry.tipoMadera].label} · ${entry.anchoCm} × ${entry.largoCm} cm`;
     case "cano_pvc":

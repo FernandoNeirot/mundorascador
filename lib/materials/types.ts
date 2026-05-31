@@ -1,11 +1,14 @@
 export type MaterialType =
   | "telas"
   | "guata"
+  | "hilo"
   | "maderas"
   | "cano_pvc"
   | "herramientas";
 
 export type FabricLikeType = "telas" | "guata";
+
+export type MeterBasedType = "telas" | "guata" | "hilo" | "cano_pvc";
 
 export type WoodType = "fibro_facil" | "pino";
 
@@ -21,7 +24,7 @@ type BaseStockEntry = {
 
 export type TelaStockEntry = BaseStockEntry & {
   type: "telas";
-  marca: string;
+  descripcion: string;
   anchoCm: number;
   largoCm: number;
   color: string;
@@ -29,10 +32,16 @@ export type TelaStockEntry = BaseStockEntry & {
 
 export type GuataStockEntry = BaseStockEntry & {
   type: "guata";
-  marca: string;
+  descripcion: string;
   anchoCm: number;
   largoCm: number;
   color: string;
+};
+
+export type HiloStockEntry = BaseStockEntry & {
+  type: "hilo";
+  descripcion: string;
+  largoCm: number;
 };
 
 export type FabricLikeStockEntry = TelaStockEntry | GuataStockEntry;
@@ -58,6 +67,7 @@ export type HerramientaStockEntry = BaseStockEntry & {
 export type StockEntry =
   | TelaStockEntry
   | GuataStockEntry
+  | HiloStockEntry
   | MaderaStockEntry
   | CanoPvcStockEntry
   | HerramientaStockEntry;
@@ -70,7 +80,7 @@ type CreateStockBase = {
 
 export type CreateTelaInput = CreateStockBase & {
   type: "telas";
-  marca: string;
+  descripcion: string;
   anchoCm: number;
   largoCm: number;
   color: string;
@@ -78,10 +88,16 @@ export type CreateTelaInput = CreateStockBase & {
 
 export type CreateGuataInput = CreateStockBase & {
   type: "guata";
-  marca: string;
+  descripcion: string;
   anchoCm: number;
   largoCm: number;
   color: string;
+};
+
+export type CreateHiloInput = CreateStockBase & {
+  type: "hilo";
+  descripcion: string;
+  largoCm: number;
 };
 
 export type CreateFabricLikeInput = CreateTelaInput | CreateGuataInput;
@@ -107,6 +123,7 @@ export type CreateHerramientaInput = CreateStockBase & {
 export type CreateStockEntryInput =
   | CreateTelaInput
   | CreateGuataInput
+  | CreateHiloInput
   | CreateMaderaInput
   | CreateCanoPvcInput
   | CreateHerramientaInput;

@@ -26,7 +26,7 @@ function buildEntry(
       return {
         ...base,
         type: "telas",
-        marca: input.marca,
+        descripcion: input.descripcion,
         anchoCm: input.anchoCm,
         largoCm: input.largoCm,
         color: input.color,
@@ -35,10 +35,17 @@ function buildEntry(
       return {
         ...base,
         type: "guata",
-        marca: input.marca,
+        descripcion: input.descripcion,
         anchoCm: input.anchoCm,
         largoCm: input.largoCm,
         color: input.color,
+      };
+    case "hilo":
+      return {
+        ...base,
+        type: "hilo",
+        descripcion: input.descripcion,
+        largoCm: input.largoCm,
       };
     case "maderas":
       return {
@@ -78,7 +85,17 @@ function isValidStockEntry(value: unknown): value is StockEntry {
 }
 
 function docToEntry(id: string, data: DocumentData): StockEntry | null {
-  const entry = { id, ...data };
+  const normalized = { ...data };
+
+  if (
+    (normalized.type === "telas" || normalized.type === "guata") &&
+    typeof normalized.marca === "string" &&
+    !normalized.descripcion
+  ) {
+    normalized.descripcion = normalized.marca;
+  }
+
+  const entry = { id, ...normalized };
   return isValidStockEntry(entry) ? entry : null;
 }
 
@@ -123,7 +140,7 @@ export async function updateStockEntry(
   input: CreateStockEntryInput,
 ): Promise<StockEntry | null> {
   const existing = await getStockEntryById(id);
-  if (!existing || existing.type !== input.type) return null;
+  if (!existing) return null;
 
   const updated = buildEntry(id, input, new Date().toISOString());
   await getCollection().doc(id).set(updated);

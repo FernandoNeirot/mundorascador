@@ -38,6 +38,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = await getSessionFromRequest(request);
 
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL("/admin", request.url));
+  }
+
   if (pathname.startsWith("/login")) {
     if (session && canReadStock(session.role)) {
       return NextResponse.redirect(new URL("/admin", request.url));
@@ -74,5 +78,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/login", "/api/materials/:path*"],
+  matcher: ["/", "/admin/:path*", "/login", "/api/materials/:path*"],
 };

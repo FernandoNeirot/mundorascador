@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { BUYER_CONFIG, isFabricLikeEntry, MATERIAL_CONFIG } from "@/lib/materials/constants";
+import { BUYER_CONFIG, isMeterBasedEntry, MATERIAL_CONFIG } from "@/lib/materials/constants";
 import EditStockDialog from "@/components/admin/EditStockDialog";
 import {
   calculateTotalPrice,
@@ -136,7 +136,7 @@ export default function StockInventoryTable({
                           <div>{formatPrice(calculateTotalPrice(entry))}</div>
                           <div className="text-zinc-500">
                             {formatPrice(getUnitPrice(entry))} c/u
-                            {isFabricLikeEntry(entry) && ` (${formatPrice(entry.price)}/m)`}
+                            {isMeterBasedEntry(entry) && ` (${formatPrice(entry.price)}/m)`}
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-3">

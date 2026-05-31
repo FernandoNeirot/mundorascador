@@ -14,7 +14,9 @@ export function getStockGroupKey(entry: StockEntry): string {
   switch (entry.type) {
     case "telas":
     case "guata":
-      return `${base}|${entry.marca.toLowerCase()}|${entry.color.toLowerCase()}|${entry.anchoCm}|${entry.largoCm}`;
+      return `${base}|${entry.descripcion.toLowerCase()}|${entry.color.toLowerCase()}|${entry.anchoCm}|${entry.largoCm}`;
+    case "hilo":
+      return `${base}|${entry.descripcion.toLowerCase()}|${entry.largoCm}`;
     case "maderas":
       return `${base}|${entry.tipoMadera}|${entry.anchoCm}|${entry.largoCm}`;
     case "cano_pvc":
