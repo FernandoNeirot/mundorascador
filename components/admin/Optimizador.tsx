@@ -105,7 +105,7 @@ export default function Optimizador() {
   const materialLabel = materialType === "maderas" ? "Madera" : "Tela";
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-10">
+    <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
       <header>
         <Link
           href="/admin"
@@ -126,8 +126,8 @@ export default function Optimizador() {
         </p>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-6">
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="mx-auto flex w-full min-w-0 max-w-[1000px] flex-col gap-6">
+        <section className="min-w-0 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <h2 className="mb-4 text-sm font-medium text-zinc-900 dark:text-zinc-50">
             Configuración
           </h2>
@@ -285,7 +285,7 @@ export default function Optimizador() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <h2 className="mb-4 text-sm font-medium text-zinc-900 dark:text-zinc-50">
             Simulación · {materialLabel}
           </h2>
