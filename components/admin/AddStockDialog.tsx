@@ -15,6 +15,7 @@ import {
   isValidLengthCm,
   quantityFromLengthCm,
 } from "@/lib/materials/meter-based";
+import { formatSuperficieCm2Preview } from "@/lib/materials/superficie";
 import type { BuyerType, MaterialType, WoodType } from "@/lib/materials/types";
 
 const inputClassName =
@@ -598,6 +599,19 @@ export default function AddStockDialog({
                     </select>
                   </label>
                   <label className={labelClassName}>
+                    Superficie (cm²)
+                    <input
+                      type="text"
+                      readOnly
+                      value={formatSuperficieCm2Preview(
+                        maderaForm.anchoCm,
+                        maderaForm.largoCm,
+                      )}
+                      placeholder="Se calcula del ancho y largo"
+                      className={readOnlyInputClassName}
+                    />
+                  </label>
+                  <label className={labelClassName}>
                     Cantidad
                     <input
                       type="number"
@@ -615,7 +629,7 @@ export default function AddStockDialog({
                     />
                   </label>
                   <label className={`${labelClassName} sm:col-span-2`}>
-                    Precio por unidad
+                    Precio por cantidad cargada
                     <input
                       type="number"
                       min="0.01"

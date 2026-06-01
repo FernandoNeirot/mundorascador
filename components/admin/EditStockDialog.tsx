@@ -16,7 +16,21 @@ import {
   isValidLengthCm,
   quantityFromLengthCm,
 } from "@/lib/materials/meter-based";
-import type { BuyerType, MaterialType, StockEntry, WoodType } from "@/lib/materials/types";
+import {
+  getRemainingCm2,
+  getUsedCm2,
+  isStockEntryWithCortes,
+  supportsCortesTracking,
+} from "@/lib/materials/cortes";
+import { formatSuperficieCm2, formatSuperficieCm2Preview } from "@/lib/materials/superficie";
+import type {
+  BuyerType,
+  MaterialType,
+  StockEntry,
+  StockEntryWithCortes,
+  WoodType,
+} from "@/lib/materials/types";
+import CortesStockDialog from "@/components/admin/CortesStockDialog";
 
 const inputClassName =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
@@ -48,6 +62,7 @@ export default function EditStockDialog({
   const [tipoMadera, setTipoMadera] = useState<WoodType>("pino");
   const [anchoMm, setAnchoMm] = useState("");
   const [cantidadUsada, setCantidadUsada] = useState("");
+  const [cortesOpen, setCortesOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -171,29 +186,41 @@ export default function EditStockDialog({
     if (parsedPrice === null) return null;
     const parsedQuantity = resolveQuantity();
     if (parsedQuantity === null) return null;
-    const parsedCantidadUsada = parseCantidadUsadaField(
-      cantidadUsada,
-      parsedQuantity,
-    );
-    if (parsedCantidadUsada === null) return null;
+
+    let parsedCantidadUsada: number | undefined;
+    let cortes: StockEntryWithCortes["cortes"] | undefined;
+
+    if (supportsCortesTracking(editType)) {
+      if (entry.type !== editType) {
+        setError("El tipo de registro no coincide.");
+        return null;
+      }
+      cortes = entry.cortes ?? [];
+    } else {
+      const used = parseCantidadUsadaField(cantidadUsada, parsedQuantity);
+      if (used === null) return null;
+      parsedCantidadUsada = used;
+    }
 
     const base = {
       type: editType,
       price: parsedPrice,
       quantity: parsedQuantity,
-      cantidadUsada: parsedCantidadUsada,
       compradoPor,
+      ...(parsedCantidadUsada !== undefined && {
+        cantidadUsada: parsedCantidadUsada,
+      }),
+      ...(cortes !== undefined && { cortes }),
     };
 
     switch (editType) {
       case "telas":
-      case "guata":
         if (!descripcion.trim()) {
-          setError(`Ingresá la descripción de la ${editType === "guata" ? "guata" : "tela"}.`);
+          setError("Ingresá la descripción de la tela.");
           return null;
         }
         if (!color.trim()) {
-          setError(`Ingresá el color de la ${editType === "guata" ? "guata" : "tela"}.`);
+          setError("Ingresá el color de la tela.");
           return null;
         }
         {
@@ -203,7 +230,30 @@ export default function EditStockDialog({
           if (parsedLargo === null) return null;
           return {
             ...base,
-            type: editType,
+            type: "telas",
+            descripcion: descripcion.trim(),
+            color: color.trim(),
+            anchoCm: parsedAncho,
+            largoCm: parsedLargo,
+          };
+        }
+      case "guata":
+        if (!descripcion.trim()) {
+          setError("Ingresá la descripción de la guata.");
+          return null;
+        }
+        if (!color.trim()) {
+          setError("Ingresá el color de la guata.");
+          return null;
+        }
+        {
+          const parsedAncho = parseField(anchoCm, "El ancho");
+          if (parsedAncho === null) return null;
+          const parsedLargo = parseLengthField(largoCm, "El largo");
+          if (parsedLargo === null) return null;
+          return {
+            ...base,
+            type: "guata",
             descripcion: descripcion.trim(),
             color: color.trim(),
             anchoCm: parsedAncho,
@@ -285,20 +335,68 @@ export default function EditStockDialog({
     }
   };
 
+  const quantityIsReadOnly = isMeterBasedType(editType);
+
   const quantityLabel = isMeterBasedType(editType)
     ? "Cantidad (metros)"
     : "Cantidad";
 
+  const priceLabel =
+    editType === "maderas"
+      ? "Precio por cantidad cargada"
+      : isMeterBasedType(editType)
+        ? "Precio por metro"
+        : "Precio por unidad";
+
   const parsedQuantityPreview = Number(quantity);
   const parsedUsedPreview = Number(cantidadUsada);
-  const remainingPreview =
-    Number.isFinite(parsedQuantityPreview) && Number.isFinite(parsedUsedPreview)
-      ? Math.max(0, parsedQuantityPreview - parsedUsedPreview)
-      : null;
 
-  const usedQuantityLabel = isMeterBasedType(editType)
-    ? "Cantidad usada (metros)"
-    : "Cantidad usada";
+  const cortesPreviewEntry = ((): StockEntryWithCortes | null => {
+    if (!supportsCortesTracking(editType) || entry.type !== editType) {
+      return null;
+    }
+    const ancho = Number(anchoCm);
+    const largo = Number(largoCm);
+    if (
+      !Number.isFinite(ancho) ||
+      ancho <= 0 ||
+      !Number.isFinite(largo) ||
+      largo <= 0
+    ) {
+      return entry;
+    }
+    const superficieCm2 = ancho * largo;
+    if (entry.type === "telas") {
+      return { ...entry, anchoCm: ancho, largoCm: largo, superficieCm2 };
+    }
+    const qty = Number(quantity);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return entry;
+    }
+    return {
+      ...entry,
+      quantity: qty,
+      anchoCm: ancho,
+      largoCm: largo,
+      superficieCm2,
+    };
+  })();
+
+  const remainingPreview =
+    cortesPreviewEntry
+      ? getRemainingCm2(cortesPreviewEntry)
+      : Number.isFinite(parsedQuantityPreview) &&
+          Number.isFinite(parsedUsedPreview)
+        ? Math.max(0, parsedQuantityPreview - parsedUsedPreview)
+        : null;
+
+  const usedQuantityLabel = supportsCortesTracking(editType)
+    ? "Superficie usada (cm²)"
+    : isMeterBasedType(editType)
+      ? "Cantidad usada (metros)"
+      : "Cantidad usada";
+
+  const cortesEntry = isStockEntryWithCortes(entry) ? entry : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -394,6 +492,18 @@ export default function EditStockDialog({
                     className={inputClassName}
                   />
                 </label>
+                {editType === "telas" && (
+                  <label className={labelClassName}>
+                    Superficie del rollo (cm²)
+                    <input
+                      type="text"
+                      readOnly
+                      value={formatSuperficieCm2Preview(anchoCm, largoCm)}
+                      placeholder="Se calcula del ancho y largo"
+                      className={readOnlyInputClassName}
+                    />
+                  </label>
+                )}
               </div>
               <label className={labelClassName}>
                 Color
@@ -456,6 +566,16 @@ export default function EditStockDialog({
                     value={largoCm}
                     onChange={(event) => setLargoCm(event.target.value)}
                     className={inputClassName}
+                  />
+                </label>
+                <label className={labelClassName}>
+                  Superficie (cm²)
+                  <input
+                    type="text"
+                    readOnly
+                    value={formatSuperficieCm2Preview(anchoCm, largoCm)}
+                    placeholder="Se calcula del ancho y largo"
+                    className={readOnlyInputClassName}
                   />
                 </label>
               </div>
@@ -521,13 +641,22 @@ export default function EditStockDialog({
             <label className={labelClassName}>
               {quantityLabel}
               <input
-                type="text"
-                readOnly
+                type={quantityIsReadOnly ? "text" : "number"}
+                readOnly={quantityIsReadOnly}
+                min={quantityIsReadOnly ? undefined : "1"}
+                step={quantityIsReadOnly ? undefined : "1"}
                 value={quantity}
+                onChange={
+                  quantityIsReadOnly
+                    ? undefined
+                    : (event) => setQuantity(event.target.value)
+                }
                 placeholder={
                   isMeterBasedType(editType) ? "Se calcula del largo" : undefined
                 }
-                className={readOnlyInputClassName}
+                className={
+                  quantityIsReadOnly ? readOnlyInputClassName : inputClassName
+                }
               />
               {isMeterBasedType(editType) && (
                 <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
@@ -536,7 +665,7 @@ export default function EditStockDialog({
               )}
             </label>
             <label className={labelClassName}>
-              {isMeterBasedType(editType) ? "Precio por metro" : "Precio por unidad"}
+              {priceLabel}
               <input
                 type="number"
                 min="0.01"
@@ -549,26 +678,55 @@ export default function EditStockDialog({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className={labelClassName}>
-              {usedQuantityLabel}
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={cantidadUsada}
-                onChange={(event) => setCantidadUsada(event.target.value)}
-                className={inputClassName}
-              />
-            </label>
+            {cortesEntry && supportsCortesTracking(editType) ? (
+              <label className={labelClassName}>
+                {usedQuantityLabel}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={formatSuperficieCm2(getUsedCm2(cortesEntry))}
+                    className={`${readOnlyInputClassName} min-w-0 flex-1`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCortesOpen(true)}
+                    className="shrink-0 rounded-lg border border-amber-600/40 px-3 text-sm font-medium text-amber-800 transition hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                  >
+                    Cortes
+                  </button>
+                </div>
+                <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                  {(cortesEntry.cortes?.length ?? 0) === 0
+                    ? "Sin cortes cargados"
+                    : `${cortesEntry.cortes.length} corte${cortesEntry.cortes.length === 1 ? "" : "s"}`}
+                </span>
+              </label>
+            ) : (
+              <label className={labelClassName}>
+                {usedQuantityLabel}
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={cantidadUsada}
+                  onChange={(event) => setCantidadUsada(event.target.value)}
+                  className={inputClassName}
+                />
+              </label>
+            )}
             <label className={labelClassName}>
               Stock restante
+              {supportsCortesTracking(editType) ? " (cm²)" : ""}
               <input
                 type="text"
                 readOnly
                 value={
                   remainingPreview === null
                     ? "—"
-                    : remainingPreview.toLocaleString("es-AR")
+                    : supportsCortesTracking(editType)
+                      ? formatSuperficieCm2(remainingPreview)
+                      : remainingPreview.toLocaleString("es-AR")
                 }
                 className={readOnlyInputClassName}
               />
@@ -597,6 +755,18 @@ export default function EditStockDialog({
           </div>
         </form>
       </div>
+
+      {cortesEntry && (
+        <CortesStockDialog
+          entry={cortesEntry}
+          open={cortesOpen}
+          onClose={() => setCortesOpen(false)}
+          onSaved={() => {
+            onSaved();
+            setCortesOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,21 +1,28 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { BUYER_CONFIG, isMeterBasedEntry, MATERIAL_CONFIG } from "@/lib/materials/constants";
+import {
+  BUYER_CONFIG,
+  isMeterBasedEntry,
+  MATERIAL_CONFIG,
+} from "@/lib/materials/constants";
 import EditStockDialog from "@/components/admin/EditStockDialog";
+import CortesStockDialog from "@/components/admin/CortesStockDialog";
+import { isStockEntryWithCortes } from "@/lib/materials/cortes";
 import {
   calculateTotalPrice,
   formatDate,
   formatEntryDetails,
   formatPrice,
-  getCantidadUsada,
+  getDisplayCantidadUsada,
+  getDisplayRemainingQuantity,
+  getDisplayStockQuantity,
   getQuantityUnitShort,
-  getRemainingQuantity,
   getUnitPrice,
 } from "@/lib/materials/format";
 import { groupStockEntries } from "@/lib/materials/grouping";
 import { filterStockGroups } from "@/lib/materials/stock-search";
-import type { StockEntry } from "@/lib/materials/types";
+import type { StockEntry, StockEntryWithCortes } from "@/lib/materials/types";
 
 const PAGE_SIZE = 5;
 
@@ -35,6 +42,7 @@ export default function StockInventoryTable({
 }: StockInventoryTableProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [editingEntry, setEditingEntry] = useState<StockEntry | null>(null);
+  const [cortesEntry, setCortesEntry] = useState<StockEntryWithCortes | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -51,6 +59,9 @@ export default function StockInventoryTable({
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredGroups.length / PAGE_SIZE));
+
+  const resolveEntry = (target: StockEntry | null) =>
+    target ? (entries.find((item) => item.id === target.id) ?? target) : null;
 
   const paginatedGroups = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -117,29 +128,14 @@ export default function StockInventoryTable({
         <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
           <thead className="bg-zinc-50 dark:bg-zinc-900/50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                Tipo
+              <th className="w-36 px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                &nbsp;
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">
                 Detalle
               </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                Comprado por
-              </th>
               <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                Stock
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                Usado
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                Restante
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                Precio total
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                Registros
+                Stock restante
               </th>
             </tr>
           </thead>
@@ -148,94 +144,120 @@ export default function StockInventoryTable({
               const sample = group.entries[0];
               const unit = getQuantityUnitShort(sample.type);
               const isExpanded = expandedGroups.has(group.key);
-              const hasMultiple = group.entries.length > 1;
-
               return (
                 <Fragment key={group.key}>
                   <tr className="transition hover:bg-zinc-50 dark:hover:bg-zinc-900/40">
-                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                      {MATERIAL_CONFIG[sample.type].label}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-300">
-                      {formatEntryDetails(sample)}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-700 dark:text-zinc-300">
-                      {BUYER_CONFIG[sample.compradoPor].label}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
-                      {group.totalQuantity.toLocaleString("es-AR")} {unit}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm tabular-nums text-zinc-700 dark:text-zinc-300">
-                      {group.totalCantidadUsada.toLocaleString("es-AR")} {unit}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
-                      {group.stockRestante.toLocaleString("es-AR")} {unit}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
-                      {formatPrice(group.totalPrice)}
-                    </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm">
                       <button
                         type="button"
                         onClick={() => toggleGroup(group.key)}
                         className="font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
                       >
-                        {hasMultiple
-                          ? `${group.entries.length} compras · ${isExpanded ? "Ocultar" : "Ver"}`
-                          : "1 compra · Ver"}
+                        {isExpanded
+                          ? `Ocultar (${group.entries.length})`
+                          : `Ver (${group.entries.length})`}
                       </button>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-300">
+                      {formatEntryDetails(sample)}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
+                      {group.stockRestante.toLocaleString("es-AR")} {unit}
                     </td>
                   </tr>
 
                   {isExpanded &&
                     group.entries.map((entry) => {
                       const entryUnit = getQuantityUnitShort(entry.type);
-                      const remaining = getRemainingQuantity(entry);
+                      const remaining = getDisplayRemainingQuantity(entry);
 
                       return (
                       <tr
                         key={entry.id}
                         className="bg-zinc-50/80 dark:bg-zinc-900/30"
                       >
-                        <td
-                          className="px-6 py-3 text-xs text-zinc-500"
-                          colSpan={2}
-                        >
-                          Compra del {formatDate(entry.updatedAt)}
-                        </td>
-                        <td className="px-6 py-3 text-xs text-zinc-500">
-                          {BUYER_CONFIG[entry.compradoPor].label}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-3 text-right text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
-                          {entry.quantity.toLocaleString("es-AR")} {entryUnit}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-3 text-right text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
-                          {getCantidadUsada(entry).toLocaleString("es-AR")}{" "}
-                          {entryUnit}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-3 text-right text-xs tabular-nums font-medium text-emerald-700 dark:text-emerald-400">
-                          {remaining.toLocaleString("es-AR")} {entryUnit}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-3 text-right text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
-                          <div>{formatPrice(calculateTotalPrice(entry))}</div>
-                          <div className="text-zinc-500">
-                            {isMeterBasedEntry(entry)
-                              ? `${formatPrice(entry.price)}/m × ${entry.quantity.toLocaleString("es-AR")} m`
-                              : `${formatPrice(getUnitPrice(entry))} c/u`}
+                        <td colSpan={3} className="px-6 py-3">
+                          <div className="flex flex-col gap-3 border-l-2 border-amber-600/25 pl-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                            <div className="flex min-w-0 flex-col gap-2 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-1">
+                              <span className="font-medium text-zinc-600 dark:text-zinc-400">
+                                Compra del {formatDate(entry.updatedAt)}
+                              </span>
+                              <span className="text-zinc-600 dark:text-zinc-400">
+                                Tipo:{" "}
+                                <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                                  {MATERIAL_CONFIG[entry.type].label}
+                                </span>
+                              </span>
+                              <span className="text-zinc-600 dark:text-zinc-400">
+                                Comprado por:{" "}
+                                <span className="text-zinc-800 dark:text-zinc-200">
+                                  {BUYER_CONFIG[entry.compradoPor].label}
+                                </span>
+                              </span>
+                              <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                                Stock:{" "}
+                                <span className="text-zinc-800 dark:text-zinc-200">
+                                  {getDisplayStockQuantity(entry).toLocaleString(
+                                    "es-AR",
+                                  )}{" "}
+                                  {entryUnit}
+                                </span>
+                              </span>
+                              <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                                Usado:{" "}
+                                {isStockEntryWithCortes(entry) && canWrite ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setCortesEntry(entry)}
+                                    className="font-medium text-amber-700 underline-offset-2 transition hover:text-amber-800 hover:underline dark:text-amber-400 dark:hover:text-amber-300"
+                                    title="Gestionar cortes"
+                                  >
+                                    {getDisplayCantidadUsada(
+                                      entry,
+                                    ).toLocaleString("es-AR")}{" "}
+                                    {entryUnit}
+                                  </button>
+                                ) : (
+                                  <span className="text-zinc-800 dark:text-zinc-200">
+                                    {getDisplayCantidadUsada(
+                                      entry,
+                                    ).toLocaleString("es-AR")}{" "}
+                                    {entryUnit}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="tabular-nums text-emerald-700 dark:text-emerald-400">
+                                Restante:{" "}
+                                {remaining.toLocaleString("es-AR")} {entryUnit}
+                              </span>
+                              <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                                Precio:{" "}
+                                <span className="text-zinc-800 dark:text-zinc-200">
+                                  {formatPrice(calculateTotalPrice(entry))}
+                                </span>
+                                <span className="ml-1 text-zinc-500">
+                                  (
+                                  {isMeterBasedEntry(entry)
+                                    ? `${formatPrice(entry.price)}/m × ${entry.quantity.toLocaleString("es-AR")} m`
+                                    : `${formatPrice(getUnitPrice(entry))} c/u`}
+                                  )
+                                </span>
+                              </span>
+                            </div>
+                            <div className="shrink-0">
+                              {canWrite ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingEntry(entry)}
+                                  className="text-xs font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
+                                >
+                                  Editar
+                                </button>
+                              ) : (
+                                <span className="text-xs text-zinc-400">—</span>
+                              )}
+                            </div>
                           </div>
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-3">
-                          {canWrite ? (
-                            <button
-                              type="button"
-                              onClick={() => setEditingEntry(entry)}
-                              className="text-xs font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
-                            >
-                              Editar
-                            </button>
-                          ) : (
-                            <span className="text-xs text-zinc-400">—</span>
-                          )}
                         </td>
                       </tr>
                       );
@@ -286,11 +308,26 @@ export default function StockInventoryTable({
       </div>
 
       {canWrite && (
-        <EditStockDialog
-          entry={editingEntry}
-          onClose={() => setEditingEntry(null)}
-          onSaved={onRefresh}
-        />
+        <>
+          <EditStockDialog
+            entry={resolveEntry(editingEntry)}
+            onClose={() => setEditingEntry(null)}
+            onSaved={onRefresh}
+          />
+          <CortesStockDialog
+            entry={
+              (() => {
+                const resolved = resolveEntry(cortesEntry);
+                return resolved && isStockEntryWithCortes(resolved)
+                  ? resolved
+                  : cortesEntry;
+              })()
+            }
+            open={cortesEntry !== null}
+            onClose={() => setCortesEntry(null)}
+            onSaved={onRefresh}
+          />
+        </>
       )}
     </>
   );

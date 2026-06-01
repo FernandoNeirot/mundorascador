@@ -3,13 +3,21 @@ import {
   isValidLengthCm,
   quantityFromLengthCm,
 } from "./meter-based";
+import {
+  getMaderaStockCm2,
+  getTelaStockCm2,
+  totalSuperficieCortesUsadaCm2,
+} from "./cortes";
+import { superficieCm2FromDimensions } from "./superficie";
 import type {
   BuyerType,
-  CreateFabricLikeInput,
+  CreateGuataInput,
   CreateHiloInput,
+  CreateMaderaInput,
   CreateStockEntryInput,
-  FabricLikeType,
+  CreateTelaInput,
   MaterialType,
+  StockCorte,
   WoodType,
 } from "./types";
 
@@ -49,12 +57,16 @@ function parseLengthCm(value: unknown): number | null {
   return largoCm;
 }
 
-function parseFabricLikeInput(
+type TelaInputBase = Omit<
+  CreateTelaInput,
+  "superficieCm2" | "cortes" | "cantidadUsada"
+>;
+
+function parseTelaInput(
   record: Record<string, unknown>,
-  type: FabricLikeType,
   price: number,
   compradoPor: BuyerType,
-): CreateFabricLikeInput | { error: string } {
+): TelaInputBase | { error: string } {
   const descripcion = parseNonEmptyString(record.descripcion);
   const color = parseNonEmptyString(record.color);
   const anchoCm = parsePositiveNumber(record.anchoCm, "ancho");
@@ -70,7 +82,38 @@ function parseFabricLikeInput(
   }
 
   return {
-    type,
+    type: "telas",
+    descripcion,
+    color,
+    anchoCm,
+    largoCm,
+    price,
+    quantity: quantityFromLengthCm(largoCm),
+    compradoPor,
+  };
+}
+
+function parseGuataInput(
+  record: Record<string, unknown>,
+  price: number,
+  compradoPor: BuyerType,
+): CreateGuataInput | { error: string } {
+  const descripcion = parseNonEmptyString(record.descripcion);
+  const color = parseNonEmptyString(record.color);
+  const anchoCm = parsePositiveNumber(record.anchoCm, "ancho");
+  const largoCm = parseLengthCm(record.largoCm);
+
+  if (!descripcion) return { error: "La descripción es obligatoria" };
+  if (!color) return { error: "El color es obligatorio" };
+  if (anchoCm === null) {
+    return { error: "El ancho debe ser mayor a 0 cm" };
+  }
+  if (largoCm === null) {
+    return { error: "El largo debe ser mayor a 100 cm" };
+  }
+
+  return {
+    type: "guata",
     descripcion,
     color,
     anchoCm,
@@ -124,6 +167,40 @@ function parseCantidadUsada(
   return value;
 }
 
+function parseCortes(value: unknown): StockCorte[] | { error: string } {
+  if (value === undefined || value === null) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    return { error: "Los cortes son inválidos" };
+  }
+
+  const cortes: StockCorte[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") {
+      return { error: "Cada corte debe ser un objeto válido" };
+    }
+    const corte = item as Record<string, unknown>;
+    const id =
+      typeof corte.id === "string" && corte.id.trim()
+        ? corte.id.trim()
+        : crypto.randomUUID();
+    const anchoCm = parsePositiveNumber(corte.anchoCm, "ancho");
+    const largoCm = parsePositiveNumber(corte.largoCm, "largo");
+
+    if (anchoCm === null) {
+      return { error: "Cada corte debe tener ancho mayor a 0 cm" };
+    }
+    if (largoCm === null) {
+      return { error: "Cada corte debe tener largo mayor a 0 cm" };
+    }
+
+    cortes.push({ id, anchoCm, largoCm });
+  }
+
+  return cortes;
+}
+
 function finalizeInput(
   data: CreateStockEntryInput,
   record: Record<string, unknown>,
@@ -133,6 +210,32 @@ function finalizeInput(
     return { ok: false, error: cantidadUsada.error };
   }
   return { ok: true, data: { ...data, cantidadUsada } };
+}
+
+function finalizeWithCortes<T extends CreateMaderaInput | CreateTelaInput>(
+  data: T,
+  record: Record<string, unknown>,
+  getStockCm2: (data: T) => number,
+): ValidationResult {
+  const cortes = parseCortes(record.cortes);
+  if ("error" in cortes) {
+    return { ok: false, error: cortes.error };
+  }
+
+  const stockCm2 = getStockCm2(data);
+  const usedCm2 = totalSuperficieCortesUsadaCm2(cortes);
+
+  if (usedCm2 > stockCm2) {
+    return {
+      ok: false,
+      error: "La superficie de los cortes supera el stock disponible",
+    };
+  }
+
+  return {
+    ok: true,
+    data: { ...data, cortes, cantidadUsada: usedCm2 } as CreateStockEntryInput,
+  };
 }
 
 export function validateCreateStockEntry(body: unknown): ValidationResult {
@@ -157,17 +260,28 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
     return { ok: false, error: "Seleccioná quién compró el material" };
   }
 
-  if (type === "telas" || type === "guata") {
-    const fabric = parseFabricLikeInput(
-      record,
-      type,
-      price,
-      compradoPor,
-    );
-    if ("error" in fabric) {
-      return { ok: false, error: fabric.error };
+  if (type === "telas") {
+    const tela = parseTelaInput(record, price, compradoPor);
+    if ("error" in tela) {
+      return { ok: false, error: tela.error };
     }
-    return finalizeInput(fabric, record);
+    return finalizeWithCortes(
+      {
+        ...tela,
+        superficieCm2: superficieCm2FromDimensions(tela.anchoCm, tela.largoCm),
+        cortes: [],
+      },
+      record,
+      getTelaStockCm2,
+    );
+  }
+
+  if (type === "guata") {
+    const guata = parseGuataInput(record, price, compradoPor);
+    if ("error" in guata) {
+      return { ok: false, error: guata.error };
+    }
+    return finalizeInput(guata, record);
   }
 
   if (type === "hilo") {
@@ -200,17 +314,20 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
       return { ok: false, error: "Tipo de madera inválido" };
     }
 
-    return finalizeInput(
+    return finalizeWithCortes(
       {
         type: "maderas",
         anchoCm,
         largoCm,
+        superficieCm2: superficieCm2FromDimensions(anchoCm, largoCm),
         quantity,
         price,
         tipoMadera: tipoMadera as WoodType,
         compradoPor,
+        cortes: [],
       },
       record,
+      getMaderaStockCm2,
     );
   }
 

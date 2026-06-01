@@ -23,12 +23,24 @@ type BaseStockEntry = {
   compradoPor: BuyerType;
 };
 
+export type StockCorte = {
+  id: string;
+  anchoCm: number;
+  largoCm: number;
+};
+
+/** @deprecated Usar StockCorte */
+export type MaderaCorte = StockCorte;
+
 export type TelaStockEntry = BaseStockEntry & {
   type: "telas";
   descripcion: string;
   anchoCm: number;
   largoCm: number;
+  /** Superficie del rollo en cm² (ancho × largo). */
+  superficieCm2: number;
   color: string;
+  cortes: StockCorte[];
 };
 
 export type GuataStockEntry = BaseStockEntry & {
@@ -51,8 +63,13 @@ export type MaderaStockEntry = BaseStockEntry & {
   type: "maderas";
   anchoCm: number;
   largoCm: number;
+  /** Superficie de una pieza en cm² (ancho × largo). */
+  superficieCm2: number;
   tipoMadera: WoodType;
+  cortes: StockCorte[];
 };
+
+export type StockEntryWithCortes = MaderaStockEntry | TelaStockEntry;
 
 export type CanoPvcStockEntry = BaseStockEntry & {
   type: "cano_pvc";
@@ -85,7 +102,9 @@ export type CreateTelaInput = CreateStockBase & {
   descripcion: string;
   anchoCm: number;
   largoCm: number;
+  superficieCm2: number;
   color: string;
+  cortes: StockCorte[];
 };
 
 export type CreateGuataInput = CreateStockBase & {
@@ -108,7 +127,9 @@ export type CreateMaderaInput = CreateStockBase & {
   type: "maderas";
   anchoCm: number;
   largoCm: number;
+  superficieCm2: number;
   tipoMadera: WoodType;
+  cortes: StockCorte[];
 };
 
 export type CreateCanoPvcInput = CreateStockBase & {

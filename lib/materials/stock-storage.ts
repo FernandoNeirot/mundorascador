@@ -1,5 +1,6 @@
 import { getFirestore, type DocumentData } from "firebase-admin/firestore";
 import { getFirebaseAdmin } from "@/lib/firebase/admin";
+import { superficieCm2FromDimensions } from "./superficie";
 import type { CreateStockEntryInput, StockEntry } from "./types";
 
 const COLLECTION = "taller-stock";
@@ -30,7 +31,9 @@ function buildEntry(
         descripcion: input.descripcion,
         anchoCm: input.anchoCm,
         largoCm: input.largoCm,
+        superficieCm2: input.superficieCm2,
         color: input.color,
+        cortes: input.cortes,
       };
     case "guata":
       return {
@@ -54,7 +57,9 @@ function buildEntry(
         type: "maderas",
         anchoCm: input.anchoCm,
         largoCm: input.largoCm,
+        superficieCm2: input.superficieCm2,
         tipoMadera: input.tipoMadera,
+        cortes: input.cortes,
       };
     case "cano_pvc":
       return {
@@ -101,6 +106,24 @@ function docToEntry(id: string, data: DocumentData): StockEntry | null {
     normalized.cantidadUsada === null
   ) {
     normalized.cantidadUsada = 0;
+  }
+
+  if (normalized.type === "maderas" || normalized.type === "telas") {
+    if (
+      typeof normalized.anchoCm === "number" &&
+      typeof normalized.largoCm === "number" &&
+      (normalized.superficieCm2 === undefined ||
+        normalized.superficieCm2 === null ||
+        typeof normalized.superficieCm2 !== "number")
+    ) {
+      normalized.superficieCm2 = superficieCm2FromDimensions(
+        normalized.anchoCm,
+        normalized.largoCm,
+      );
+    }
+    if (!Array.isArray(normalized.cortes)) {
+      normalized.cortes = [];
+    }
   }
 
   const entry = { id, ...normalized };

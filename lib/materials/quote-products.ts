@@ -1,15 +1,19 @@
 import { MATERIAL_CONFIG, isMeterBasedType } from "./constants";
+import { getStockCm2, isStockEntryWithCortes } from "./cortes";
 import { calculateTotalPrice, formatEntryDetails, getUnitPrice } from "./format";
-import type { StockEntry } from "./types";
+import type { MaterialType, StockEntry } from "./types";
+
+export type QuoteQuantityUnit = "metros" | "unidades" | "cm²";
 
 export type QuoteProductOption = {
   key: string;
+  materialType: MaterialType;
   descripcion: string;
   materialLabel: string;
   details: string;
   label: string;
   unitPrice: number;
-  quantityUnit: "metros" | "unidades";
+  quantityUnit: QuoteQuantityUnit;
 };
 
 function getEntryDescripcion(entry: StockEntry): string {
@@ -52,6 +56,45 @@ function weightedUnitPrice(entries: StockEntry[]): number {
   return totalCost / totalQuantity;
 }
 
+function weightedUnitPricePerCm2(entries: StockEntry[]): number {
+  const areaEntries = entries.filter(isStockEntryWithCortes);
+  const totalCm2 = areaEntries.reduce(
+    (sum, entry) => sum + getStockCm2(entry),
+    0,
+  );
+  if (totalCm2 <= 0) return 0;
+
+  const totalCost = areaEntries.reduce(
+    (sum, entry) => sum + calculateTotalPrice(entry),
+    0,
+  );
+  return totalCost / totalCm2;
+}
+
+function resolveQuotePricing(
+  sample: StockEntry,
+  groupEntries: StockEntry[],
+): Pick<QuoteProductOption, "unitPrice" | "quantityUnit"> {
+  if (sample.type === "telas" || sample.type === "maderas") {
+    return {
+      unitPrice: weightedUnitPricePerCm2(groupEntries),
+      quantityUnit: "cm²",
+    };
+  }
+
+  if (isMeterBasedType(sample.type)) {
+    return {
+      unitPrice: weightedUnitPrice(groupEntries),
+      quantityUnit: "metros",
+    };
+  }
+
+  return {
+    unitPrice: weightedUnitPrice(groupEntries),
+    quantityUnit: "unidades",
+  };
+}
+
 export function buildQuoteProductOptions(
   entries: StockEntry[],
 ): QuoteProductOption[] {
@@ -70,20 +113,16 @@ export function buildQuoteProductOptions(
       const descripcion = getEntryDescripcion(sample);
       const details = formatEntryDetails(sample);
 
-      const quantityUnit: QuoteProductOption["quantityUnit"] = isMeterBasedType(
-        sample.type,
-      )
-        ? "metros"
-        : "unidades";
+      const pricing = resolveQuotePricing(sample, groupEntries);
 
       return {
         key,
+        materialType: sample.type,
         descripcion,
         materialLabel: MATERIAL_CONFIG[sample.type].label,
         details,
         label: `${MATERIAL_CONFIG[sample.type].label} · ${details}`,
-        unitPrice: weightedUnitPrice(groupEntries),
-        quantityUnit,
+        ...pricing,
       };
     })
     .sort((a, b) =>
