@@ -43,8 +43,12 @@ export const isFabricLikeType = (
 
 export const isMeterBasedType = (
   type: MaterialType,
-): type is "telas" | "guata" | "hilo" | "cano_pvc" =>
-  type === "telas" || type === "guata" || type === "hilo" || type === "cano_pvc";
+): type is "telas" | "guata" | "hilo" =>
+  type === "telas" || type === "guata" || type === "hilo";
+
+export const isCanoPvcType = (
+  type: MaterialType,
+): type is "cano_pvc" => type === "cano_pvc";
 
 export const isFabricLikeEntry = (
   entry: { type: MaterialType },
@@ -66,6 +70,5 @@ export const isMeterBasedEntry = (
       largoCm: number;
       color: string;
     }
-  | { type: "hilo"; descripcion: string; largoCm: number }
-  | { type: "cano_pvc"; anchoMm: number; largoCm: number } =>
+  | { type: "hilo"; descripcion: string; largoCm: number } =>
   isMeterBasedType(entry.type);

@@ -1,4 +1,4 @@
-import { isMeterBasedType, WOOD_TYPE_CONFIG } from "./constants";
+import { isCanoPvcType, isMeterBasedType, WOOD_TYPE_CONFIG } from "./constants";
 import {
   getRemainingCm2,
   getStockCm2,
@@ -46,9 +46,13 @@ export const formatDate = (iso: string): string => {
 /** Precio por unidad de medida del material (por metro, por pieza, etc.). */
 export const getUnitPrice = (entry: StockEntry): number => entry.price;
 
-/** Inversión total de un registro: cantidad × precio unitario. */
-export const calculateTotalPrice = (entry: StockEntry): number =>
-  entry.quantity * entry.price;
+/** Inversión total de un registro: cantidad × precio unitario (caño: largo cm × $/cm). */
+export const calculateTotalPrice = (entry: StockEntry): number => {
+  if (entry.type === "cano_pvc") {
+    return entry.largoCm * entry.price;
+  }
+  return entry.quantity * entry.price;
+};
 
 export const getCantidadUsada = (entry: StockEntry): number =>
   entry.cantidadUsada ?? 0;
@@ -60,6 +64,9 @@ export const getRemainingQuantity = (entry: StockEntry): number =>
 export const getDisplayStockQuantity = (entry: StockEntry): number => {
   if (isStockEntryWithCortes(entry)) {
     return getStockCm2(entry);
+  }
+  if (entry.type === "cano_pvc") {
+    return entry.largoCm;
   }
   return entry.quantity;
 };
@@ -82,8 +89,9 @@ export const getDisplayRemainingQuantity = (entry: StockEntry): number => {
 
 export const getQuantityUnitShort = (
   type: MaterialType,
-): "m" | "u" | "cm²" => {
+): "m" | "u" | "cm²" | "cm" => {
   if (type === "maderas" || type === "telas") return "cm²";
+  if (isCanoPvcType(type)) return "cm";
   return isMeterBasedType(type) ? "m" : "u";
 };
 

@@ -113,16 +113,15 @@ function toCommitted(line: QuoteLineDraft): CommittedQuoteLine {
 
 function buildFabricLineFromDraft(
   draft: WoodFabricDraft,
+  woodPieceCount: string,
 ): Omit<CommittedQuoteLine, "id" | "pairId" | "pairRole"> | null {
-  const fabricLine = {
+  return {
     productKey: draft.fabricProductKey,
     cutAnchoCm: draft.fabricAnchoCm,
     cutLargoCm: draft.fabricLargoCm,
-    pieceCount: "1",
+    pieceCount: woodPieceCount,
     quantityUsed: "",
   };
-
-  return fabricLine;
 }
 
 type AddQuoteLineDialogProps = {
@@ -192,7 +191,7 @@ export default function AddQuoteLineDialog({
           {
             cutAnchoCm: draft.woodFabric.fabricAnchoCm,
             cutLargoCm: draft.woodFabric.fabricLargoCm,
-            pieceCount: "1",
+            pieceCount: draft.pieceCount,
             quantityUsed: "",
           },
           productMap.get(draft.woodFabric.fabricProductKey),
@@ -215,7 +214,11 @@ export default function AddQuoteLineDialog({
       }
 
       if (product?.materialType === "maderas") {
-        if (patch.cutAnchoCm !== undefined || patch.cutLargoCm !== undefined) {
+        if (
+          patch.cutAnchoCm !== undefined ||
+          patch.cutLargoCm !== undefined ||
+          patch.pieceCount !== undefined
+        ) {
           next.woodFabric = syncWoodFabricFromCut(
             next.woodFabric,
             next.cutAnchoCm,
@@ -245,7 +248,10 @@ export default function AddQuoteLineDialog({
     const lines: CommittedQuoteLine[] = [woodLine];
 
     if (isMadera && draft.woodFabric.fabricConfirmed) {
-      const fabricPayload = buildFabricLineFromDraft(draft.woodFabric);
+      const fabricPayload = buildFabricLineFromDraft(
+        draft.woodFabric,
+        draft.pieceCount,
+      );
       const fabricProduct = fabricPayload
         ? productMap.get(fabricPayload.productKey)
         : undefined;
@@ -413,6 +419,7 @@ export default function AddQuoteLineDialog({
                   <WoodFabricSuggestion
                     telaProducts={telaProducts}
                     draft={draft.woodFabric}
+                    woodPieceCount={draft.pieceCount}
                     onDraftChange={(woodFabric) => updateDraft({ woodFabric })}
                   />
                 </div>

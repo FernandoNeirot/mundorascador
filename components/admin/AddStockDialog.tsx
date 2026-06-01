@@ -219,7 +219,7 @@ export default function AddStockDialog({
       type: "cano_pvc",
       anchoMm,
       largoCm,
-      quantity: quantityFromLengthCm(largoCm),
+      quantity: largoCm,
       price,
       compradoPor,
     };
@@ -673,7 +673,7 @@ export default function AddStockDialog({
                         setCanoForm({
                           ...canoForm,
                           largoCm,
-                          cantidad: formatQuantityFromLength(largoCm),
+                          cantidad: largoCm,
                         });
                       }}
                       placeholder="300"
@@ -681,7 +681,7 @@ export default function AddStockDialog({
                     />
                   </label>
                   <label className={labelClassName}>
-                    Cantidad (metros)
+                    Cantidad (cm)
                     <input
                       type="text"
                       readOnly
@@ -691,7 +691,7 @@ export default function AddStockDialog({
                     />
                   </label>
                   <label className={labelClassName}>
-                    Precio por metro
+                    Precio por cm
                     <input
                       type="number"
                       min="0.01"

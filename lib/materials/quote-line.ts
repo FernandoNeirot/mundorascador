@@ -56,10 +56,7 @@ export function getQuoteLineCost(
   if (usesCutBasedQuantity(product)) {
     const cm2 = parseCutCm2(line.cutAnchoCm, line.cutLargoCm);
     if (cm2 === null) return 0;
-    const pieces =
-      product.materialType === "maderas"
-        ? Math.max(1, Number(line.pieceCount) || 0)
-        : 1;
+    const pieces = Math.max(1, Number(line.pieceCount) || 1);
     return cm2 * pieces * product.unitPrice;
   }
 
@@ -80,11 +77,8 @@ export function formatQuoteLineQuantity(
     if (!ancho || !largo) return "Sin corte";
 
     const cut = `${ancho} × ${largo} cm`;
-    if (product.materialType === "maderas") {
-      const pieces = Math.max(1, Number(line.pieceCount) || 1);
-      return pieces > 1 ? `${cut} · ${pieces} piezas` : cut;
-    }
-    return cut;
+    const pieces = Math.max(1, Number(line.pieceCount) || 1);
+    return pieces > 1 ? `${cut} · ${pieces} piezas` : cut;
   }
 
   const qty = line.quantityUsed.trim();

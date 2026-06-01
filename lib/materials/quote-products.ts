@@ -3,7 +3,7 @@ import { getStockCm2, isStockEntryWithCortes } from "./cortes";
 import { calculateTotalPrice, formatEntryDetails, getUnitPrice } from "./format";
 import type { MaterialType, StockEntry } from "./types";
 
-export type QuoteQuantityUnit = "metros" | "unidades" | "cm²";
+export type QuoteQuantityUnit = "metros" | "unidades" | "cm²" | "cm";
 
 export type QuoteProductOption = {
   key: string;
@@ -71,6 +71,18 @@ function weightedUnitPricePerCm2(entries: StockEntry[]): number {
   return totalCost / totalCm2;
 }
 
+function weightedUnitPricePerCm(entries: StockEntry[]): number {
+  const canoEntries = entries.filter((entry) => entry.type === "cano_pvc");
+  const totalCm = canoEntries.reduce((sum, entry) => sum + entry.largoCm, 0);
+  if (totalCm <= 0) return 0;
+
+  const totalCost = canoEntries.reduce(
+    (sum, entry) => sum + calculateTotalPrice(entry),
+    0,
+  );
+  return totalCost / totalCm;
+}
+
 function resolveQuotePricing(
   sample: StockEntry,
   groupEntries: StockEntry[],
@@ -79,6 +91,13 @@ function resolveQuotePricing(
     return {
       unitPrice: weightedUnitPricePerCm2(groupEntries),
       quantityUnit: "cm²",
+    };
+  }
+
+  if (sample.type === "cano_pvc") {
+    return {
+      unitPrice: weightedUnitPricePerCm(groupEntries),
+      quantityUnit: "cm",
     };
   }
 

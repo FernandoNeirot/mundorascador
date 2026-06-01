@@ -2,30 +2,27 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import AddQuoteLineDialog from "@/components/admin/AddQuoteLineDialog";
-import QuoteLinesTable from "@/components/admin/QuoteLinesTable";
-import { formatPrice } from "@/lib/materials/format";
+import CotizacionEditor from "@/components/admin/CotizacionEditor";
+import CotizacionList from "@/components/admin/CotizacionList";
 import { buildQuoteProductOptions } from "@/lib/materials/quote-products";
-import {
-  findPairedLine,
-  getQuoteLineCost,
-  type CommittedQuoteLine,
-} from "@/lib/materials/quote-line";
+import type { Cotizacion } from "@/lib/cotizador/types";
+import type { CommittedQuoteLine } from "@/lib/materials/quote-line";
 import type { StockEntry } from "@/lib/materials/types";
+
+type CotizadorProps = {
+  initialEntries: StockEntry[];
+  initialCotizaciones: Cotizacion[];
+  canWrite: boolean;
+};
 
 export default function Cotizador({
   initialEntries,
-}: {
-  initialEntries: StockEntry[];
-}) {
+  initialCotizaciones,
+  canWrite,
+}: CotizadorProps) {
   const products = useMemo(
     () => buildQuoteProductOptions(initialEntries),
     [initialEntries],
-  );
-
-  const telaProducts = useMemo(
-    () => products.filter((p) => p.materialType === "telas"),
-    [products],
   );
 
   const productMap = useMemo(
@@ -33,89 +30,151 @@ export default function Cotizador({
     [products],
   );
 
-  const [committedLines, setCommittedLines] = useState<CommittedQuoteLine[]>(
-    [],
+  const [cotizaciones, setCotizaciones] =
+    useState<Cotizacion[]>(initialCotizaciones);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialCotizaciones[0]?.id ?? null,
+  );
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const selected = cotizaciones.find(
+    (cotizacion) => cotizacion.id === selectedId,
   );
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [lineToEdit, setLineToEdit] = useState<CommittedQuoteLine | null>(null);
-  const [pairedFabricLine, setPairedFabricLine] =
-    useState<CommittedQuoteLine | null>(null);
-
-  const totalCost = committedLines.reduce(
-    (sum, line) =>
-      sum + getQuoteLineCost(line, productMap.get(line.productKey)),
-    0,
-  );
-
-  const removeLinesFromQuote = (ids: Set<string>) => {
-    setCommittedLines((current) =>
-      current.filter((line) => !ids.has(line.id)),
+  const updateSelected = (patch: Partial<Cotizacion>) => {
+    if (!selectedId) return;
+    setCotizaciones((current) =>
+      current.map((cotizacion) =>
+        cotizacion.id === selectedId
+          ? { ...cotizacion, ...patch }
+          : cotizacion,
+      ),
     );
+    setDirty(true);
+    setError(null);
   };
 
-  const openAddModal = () => {
-    setLineToEdit(null);
-    setPairedFabricLine(null);
-    setModalOpen(true);
-  };
-
-  const openEditModal = (line: CommittedQuoteLine) => {
-    const paired = findPairedLine(line, committedLines);
-    const product = productMap.get(line.productKey);
-    const pairedProduct = paired ? productMap.get(paired.productKey) : undefined;
-
-    const isWoodLine = product?.materialType === "maderas";
-    const isFabricOfWood =
-      paired && pairedProduct?.materialType === "maderas" && product?.materialType === "telas";
-
-    const woodLine = isWoodLine ? line : isFabricOfWood ? paired! : line;
-    const fabricLine =
-      isWoodLine && paired?.pairRole === "tela"
-        ? paired
-        : isFabricOfWood
-          ? line
-          : null;
-
-    const idsToRemove = new Set<string>([line.id]);
-    if (paired) idsToRemove.add(paired.id);
-
-    setLineToEdit(woodLine);
-    setPairedFabricLine(fabricLine);
-    removeLinesFromQuote(idsToRemove);
-    setModalOpen(true);
-  };
-
-  const closeModal = () => {
-    if (lineToEdit) {
-      const restore: CommittedQuoteLine[] = [lineToEdit];
-      if (pairedFabricLine) restore.push(pairedFabricLine);
-      setCommittedLines((current) => [...current, ...restore]);
+  const handleSelect = (id: string) => {
+    if (dirty) {
+      const confirmLeave = window.confirm(
+        "Hay cambios sin guardar. ¿Querés cambiar de cotización igual?",
+      );
+      if (!confirmLeave) return;
     }
-    setModalOpen(false);
-    setLineToEdit(null);
-    setPairedFabricLine(null);
+    setSelectedId(id);
+    setDirty(false);
+    setError(null);
   };
 
-  const handleCommit = (lines: CommittedQuoteLine[]) => {
-    setCommittedLines((current) => [...current, ...lines]);
-    setModalOpen(false);
-    setLineToEdit(null);
-    setPairedFabricLine(null);
-  };
+  const handleCreate = async () => {
+    if (!canWrite) return;
+    setCreating(true);
+    setError(null);
 
-  const removeCommitted = (id: string) => {
-    setCommittedLines((current) => {
-      const target = current.find((line) => line.id === id);
-      if (target?.pairId) {
-        return current.filter((line) => line.pairId !== target.pairId);
+    try {
+      const response = await fetch("/api/cotizador", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: "Nueva cotización",
+          descripcion: "",
+          materiales: [],
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error ?? "No se pudo crear la cotización.");
+        return;
       }
-      return current.filter((line) => line.id !== id);
-    });
+
+      setCotizaciones((current) => [data, ...current]);
+      setSelectedId(data.id);
+      setDirty(false);
+    } catch {
+      setError("Error de conexión al crear la cotización.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!canWrite || !selected) return;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/cotizador/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: selected.nombre,
+          descripcion: selected.descripcion,
+          materiales: selected.materiales,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error ?? "No se pudo guardar la cotización.");
+        return;
+      }
+
+      setCotizaciones((current) =>
+        current.map((cotizacion) =>
+          cotizacion.id === data.id ? data : cotizacion,
+        ),
+      );
+      setDirty(false);
+    } catch {
+      setError("Error de conexión al guardar.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!canWrite || !selected) return;
+
+    const confirmed = window.confirm(
+      `¿Eliminar la cotización "${selected.nombre}"?`,
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/cotizador/${selected.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(data.error ?? "No se pudo eliminar la cotización.");
+        return;
+      }
+
+      const remaining = cotizaciones.filter(
+        (cotizacion) => cotizacion.id !== selected.id,
+      );
+      setCotizaciones(remaining);
+      setSelectedId(remaining[0]?.id ?? null);
+      setDirty(false);
+    } catch {
+      setError("Error de conexión al eliminar.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-10">
+    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
       <header>
         <Link
           href="/admin"
@@ -130,8 +189,8 @@ export default function Cotizador({
           Cotizador
         </h1>
         <p className="mt-2 max-w-2xl text-zinc-600 dark:text-zinc-400">
-          La cotización se arma en la tabla. Agregá o editá productos desde el
-          modal.
+          Cada cotización es un producto con nombre, descripción y materiales.
+          Los datos se guardan en Firebase.
         </p>
       </header>
 
@@ -144,56 +203,50 @@ export default function Cotizador({
           para usar el cotizador.
         </div>
       ) : (
-        <section className="mx-auto w-full max-w-[1000px] rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-              Cotización
-              {committedLines.length > 0 && (
-                <span className="ml-2 font-normal text-zinc-500 dark:text-zinc-400">
-                  ({committedLines.length}{" "}
-                  {committedLines.length === 1 ? "ítem" : "ítems"})
-                </span>
-              )}
-            </p>
-            <button
-              type="button"
-              onClick={openAddModal}
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-amber-700 px-4 text-sm font-medium text-white transition hover:bg-amber-800"
-            >
-              Agregar producto
-            </button>
-          </div>
-
-          <QuoteLinesTable
-            lines={committedLines}
+        <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,280px)_1fr]">
+          <CotizacionList
+            cotizaciones={cotizaciones}
+            selectedId={selectedId}
             productMap={productMap}
-            onEdit={openEditModal}
-            onDelete={removeCommitted}
+            canWrite={canWrite}
+            onSelect={handleSelect}
+            onCreate={handleCreate}
+            creating={creating}
           />
 
-          <div className="mt-6 flex justify-end border-t border-zinc-200 pt-6 dark:border-zinc-800">
-            <div className="text-right">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                Costo total
-              </p>
-              <p className="text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-50">
-                {formatPrice(totalCost)}
-              </p>
-            </div>
-          </div>
-        </section>
+          {selected ? (
+            <CotizacionEditor
+              cotizacion={selected}
+              products={products}
+              productMap={productMap}
+              canWrite={canWrite}
+              dirty={dirty}
+              saving={saving}
+              deleting={deleting}
+              error={error}
+              onNombreChange={(nombre) => updateSelected({ nombre })}
+              onDescripcionChange={(descripcion) =>
+                updateSelected({ descripcion })
+              }
+              onMaterialesChange={(materiales: CommittedQuoteLine[]) =>
+                updateSelected({ materiales })
+              }
+              onSave={handleSave}
+              onDelete={handleDelete}
+            />
+          ) : (
+            <section className="flex min-h-[280px] items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
+              {canWrite
+                ? "Creá una cotización nueva o seleccioná una de la lista."
+                : "Seleccioná una cotización de la lista."}
+            </section>
+          )}
+        </div>
       )}
 
-      <AddQuoteLineDialog
-        open={modalOpen}
-        lineToEdit={lineToEdit}
-        pairedFabricLine={pairedFabricLine}
-        products={products}
-        telaProducts={telaProducts}
-        productMap={productMap}
-        onClose={closeModal}
-        onCommit={handleCommit}
-      />
+      {error && !selected && (
+        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+      )}
     </div>
   );
 }

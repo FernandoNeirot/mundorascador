@@ -370,7 +370,7 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
         type: "cano_pvc",
         anchoMm,
         largoCm,
-        quantity: quantityFromLengthCm(largoCm),
+        quantity: largoCm,
         price,
         compradoPor,
       },

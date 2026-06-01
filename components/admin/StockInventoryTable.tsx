@@ -237,9 +237,11 @@ export default function StockInventoryTable({
                                 </span>
                                 <span className="ml-1 text-zinc-500">
                                   (
-                                  {isMeterBasedEntry(entry)
-                                    ? `${formatPrice(entry.price)}/m × ${entry.quantity.toLocaleString("es-AR")} m`
-                                    : `${formatPrice(getUnitPrice(entry))} c/u`}
+                                  {entry.type === "cano_pvc"
+                                    ? `${formatPrice(entry.price)}/cm × ${entry.largoCm.toLocaleString("es-AR")} cm`
+                                    : isMeterBasedEntry(entry)
+                                      ? `${formatPrice(entry.price)}/m × ${entry.quantity.toLocaleString("es-AR")} m`
+                                      : `${formatPrice(getUnitPrice(entry))} c/u`}
                                   )
                                 </span>
                               </span>

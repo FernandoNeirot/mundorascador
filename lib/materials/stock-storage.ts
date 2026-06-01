@@ -1,5 +1,6 @@
 import { getFirestore, type DocumentData } from "firebase-admin/firestore";
 import { getFirebaseAdmin } from "@/lib/firebase/admin";
+import { CM_PER_METER } from "./meter-based";
 import { superficieCm2FromDimensions } from "./superficie";
 import type { CreateStockEntryInput, StockEntry } from "./types";
 
@@ -90,8 +91,43 @@ function isValidStockEntry(value: unknown): value is StockEntry {
   );
 }
 
+/** Convierte registros legacy (precio/metro, cantidad en metros) a precio/cm. */
+function normalizeCanoPvcDocument(data: DocumentData): void {
+  if (data.type !== "cano_pvc") return;
+
+  const largoCm = Number(data.largoCm);
+  const quantity = Number(data.quantity);
+  const price = Number(data.price);
+  if (!Number.isFinite(largoCm) || largoCm <= 0 || !Number.isFinite(price)) {
+    return;
+  }
+
+  const legacyMeters = largoCm / CM_PER_METER;
+  const isLegacyQuantity =
+    Number.isFinite(quantity) &&
+    quantity > 0 &&
+    Math.abs(quantity - legacyMeters) < 0.0001;
+
+  if (!isLegacyQuantity) {
+    if (!Number.isFinite(quantity) || Math.abs(quantity - largoCm) > 0.01) {
+      data.quantity = largoCm;
+    }
+    return;
+  }
+
+  data.price = price / CM_PER_METER;
+  data.quantity = largoCm;
+
+  const used = Number(data.cantidadUsada);
+  if (Number.isFinite(used) && used > 0 && used < largoCm) {
+    data.cantidadUsada = used * CM_PER_METER;
+  }
+}
+
 function docToEntry(id: string, data: DocumentData): StockEntry | null {
   const normalized = { ...data };
+
+  normalizeCanoPvcDocument(normalized);
 
   if (
     (normalized.type === "telas" || normalized.type === "guata") &&

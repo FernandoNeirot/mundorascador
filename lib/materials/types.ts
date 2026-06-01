@@ -8,7 +8,7 @@ export type MaterialType =
 
 export type FabricLikeType = "telas" | "guata";
 
-export type MeterBasedType = "telas" | "guata" | "hilo" | "cano_pvc";
+export type MeterBasedType = "telas" | "guata" | "hilo";
 
 export type WoodType = "fibro_facil" | "pino";
 

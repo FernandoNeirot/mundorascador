@@ -13,10 +13,11 @@ type QuoteLinesTableProps = {
   productMap: Map<string, QuoteProductOption>;
   onEdit: (line: CommittedQuoteLine) => void;
   onDelete: (id: string) => void;
+  readOnly?: boolean;
 };
 
 const iconButtonClassName =
-  "inline-flex h-8 w-8 items-center justify-center rounded-md transition";
+  "inline-flex h-9 w-9 items-center justify-center rounded-md transition sm:h-8 sm:w-8";
 
 function EditIcon() {
   return (
@@ -55,77 +56,84 @@ export default function QuoteLinesTable({
   productMap,
   onEdit,
   onDelete,
+  readOnly = false,
 }: QuoteLinesTableProps) {
   if (lines.length === 0) {
     return (
       <p className="w-full rounded-xl border border-dashed border-zinc-300 px-6 py-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-        Todavía no hay productos en la cotización. Usá &quot;Agregar
-        producto&quot; para empezar.
+        Todavía no hay materiales. Usá &quot;Agregar material&quot; para empezar.
       </p>
     );
   }
 
   return (
-    <div className="w-full overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-      <table className="w-full table-fixed text-left text-sm">
+    <div className="w-full min-w-0 rounded-xl border border-zinc-200 dark:border-zinc-800">
+      <table className="w-full table-fixed text-left">
         <thead>
           <tr className="border-b border-zinc-200 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-900/50">
-            <th className="w-[38%] px-4 py-3 font-medium text-zinc-700 dark:text-zinc-300">
+            <th className="px-3 py-3 text-sm font-medium text-zinc-700 sm:px-4 dark:text-zinc-300">
               Producto
             </th>
-            <th className="w-[34%] px-4 py-3 font-medium text-zinc-700 dark:text-zinc-300">
-              Cantidad / corte
-            </th>
-            <th className="w-[20%] px-4 py-3 text-right font-medium text-zinc-700 dark:text-zinc-300">
+            <th className="w-[5.5rem] px-2 py-3 text-right text-sm font-medium text-zinc-700 sm:w-28 sm:px-4 dark:text-zinc-300">
               Costo
             </th>
-            <th className="w-[4.5rem] px-2 py-3 text-right font-medium text-zinc-700 dark:text-zinc-300">
-              <span className="sr-only">Acciones</span>
-            </th>
+            {!readOnly && (
+              <th className="w-[4.75rem] px-1 py-3 text-right text-sm font-medium text-zinc-700 sm:w-20 sm:px-2 dark:text-zinc-300">
+                Acciones
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
           {lines.map((line) => {
             const product = productMap.get(line.productKey);
             const cost = getQuoteLineCost(line, product);
-            const quantityLabel = formatQuoteLineQuantity(line, product);
+            const measureLabel = formatQuoteLineQuantity(line, product);
 
             return (
               <tr
                 key={line.id}
                 className="border-b border-zinc-100 last:border-0 dark:border-zinc-800/80"
               >
-                <td className="truncate px-4 py-3 font-medium text-zinc-900 dark:text-zinc-50">
-                  {product?.descripcion ?? "—"}
-                </td>
-                <td className="truncate px-4 py-3 text-zinc-600 dark:text-zinc-400">
-                  {quantityLabel}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
-                  {formatPrice(cost)}
-                </td>
-                <td className="px-2 py-3">
-                  <div className="flex justify-end gap-0.5">
-                    <button
-                      type="button"
-                      onClick={() => onEdit(line)}
-                      title="Editar"
-                      aria-label="Editar"
-                      className={`${iconButtonClassName} text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30`}
-                    >
-                      <EditIcon />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(line.id)}
-                      title="Eliminar"
-                      aria-label="Eliminar"
-                      className={`${iconButtonClassName} text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30`}
-                    >
-                      <TrashIcon />
-                    </button>
+                <td className="px-3 py-3 sm:px-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-50">
+                      {product?.descripcion ?? "—"}
+                    </p>
+                    <p className="mt-0.5 text-xs leading-snug text-zinc-500 sm:text-sm dark:text-zinc-400">
+                      {measureLabel}
+                    </p>
                   </div>
                 </td>
+                <td className="px-2 py-3 text-right align-middle sm:px-4">
+                  <span className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-50">
+                    {formatPrice(cost)}
+                  </span>
+                </td>
+                {!readOnly && (
+                  <td className="px-1 py-3 align-middle sm:px-2">
+                    <div className="flex justify-end gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(line)}
+                        title="Editar"
+                        aria-label="Editar"
+                        className={`${iconButtonClassName} text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30`}
+                      >
+                        <EditIcon />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(line.id)}
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                        className={`${iconButtonClassName} text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30`}
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             );
           })}

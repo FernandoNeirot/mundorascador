@@ -10,6 +10,7 @@ const detailValueClassName =
 
 function unitShort(unit: QuoteProductOption["quantityUnit"]): string {
   if (unit === "metros") return "m";
+  if (unit === "cm") return "cm";
   if (unit === "cm²") return "cm²";
   return "u";
 }

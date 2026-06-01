@@ -45,12 +45,14 @@ export const emptyWoodFabricDraft = (
 type WoodFabricSuggestionProps = {
   telaProducts: QuoteProductOption[];
   draft: WoodFabricDraft;
+  woodPieceCount: string;
   onDraftChange: (draft: WoodFabricDraft) => void;
 };
 
 export default function WoodFabricSuggestion({
   telaProducts,
   draft,
+  woodPieceCount,
   onDraftChange,
 }: WoodFabricSuggestionProps) {
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export default function WoodFabricSuggestion({
     fabricLargo > 0;
 
   const superficieCm2 = fabricValid ? fabricAncho * fabricLargo : 0;
+  const pieces = Math.max(1, Number(woodPieceCount) || 1);
   const locked = draft.fabricConfirmed;
 
   const selectedTela = useMemo(
@@ -80,7 +83,7 @@ export default function WoodFabricSuggestion({
   );
 
   const estimatedCost = selectedTela
-    ? calculateFabricCostFromCm2(superficieCm2, selectedTela.unitPrice)
+    ? calculateFabricCostFromCm2(superficieCm2, selectedTela.unitPrice) * pieces
     : 0;
 
   const handleConfirm = () => {
@@ -133,6 +136,7 @@ export default function WoodFabricSuggestion({
           <p className="mt-1 text-emerald-800 dark:text-emerald-300">
             {selectedTela.descripcion} · {draft.fabricAnchoCm} ×{" "}
             {draft.fabricLargoCm} cm
+            {pieces > 1 && ` · ${pieces} piezas`}
             {estimatedCost > 0 && (
               <>
                 {" "}
@@ -215,7 +219,13 @@ export default function WoodFabricSuggestion({
           <input
             type="text"
             readOnly
-            value={fabricValid ? formatSuperficieCm2(superficieCm2) : "—"}
+            value={
+              fabricValid
+                ? pieces > 1
+                  ? `${formatSuperficieCm2(superficieCm2)} × ${pieces} piezas`
+                  : formatSuperficieCm2(superficieCm2)
+                : "—"
+            }
             className={readOnlyInputClassName}
           />
         </label>

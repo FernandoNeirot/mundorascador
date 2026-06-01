@@ -58,7 +58,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/api/materials")) {
+  if (pathname.startsWith("/api/materials") || pathname.startsWith("/api/cotizador")) {
     if (!session || !canReadStock(session.role)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
@@ -78,5 +78,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/admin/:path*", "/login", "/api/materials/:path*"],
+  matcher: ["/", "/admin/:path*", "/login", "/api/materials/:path*", "/api/cotizador/:path*"],
 };
