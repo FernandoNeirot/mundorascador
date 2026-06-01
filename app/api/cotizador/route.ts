@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession, requireWriteSession } from "@/lib/auth/api";
+import { requireSession, requireWriteCotizadorSession } from "@/lib/auth/api";
 import {
   addCotizacion,
   getCotizaciones,
@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await requireWriteSession();
+  const session = await requireWriteCotizadorSession();
   if (session instanceof NextResponse) return session;
 
   let body: unknown;

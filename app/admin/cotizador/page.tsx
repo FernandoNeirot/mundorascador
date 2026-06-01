@@ -1,5 +1,5 @@
 import Cotizador from "@/components/admin/Cotizador";
-import { canWriteStock } from "@/lib/auth/permissions";
+import { canWriteCotizador } from "@/lib/auth/permissions";
 import { getSessionFromCookies } from "@/lib/auth/session";
 import { getCotizaciones } from "@/lib/cotizador/quote-storage";
 import { getStockEntries } from "@/lib/materials/stock-storage";
@@ -18,7 +18,7 @@ export default async function AdminCotizadorPage() {
     <Cotizador
       initialEntries={entries}
       initialCotizaciones={cotizaciones}
-      canWrite={canWriteStock(session)}
+      canWrite={canWriteCotizador(session)}
     />
   );
 }

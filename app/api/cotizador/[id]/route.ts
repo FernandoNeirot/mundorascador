@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession, requireWriteSession } from "@/lib/auth/api";
+import { requireSession, requireWriteCotizadorSession } from "@/lib/auth/api";
 import {
   deleteCotizacion,
   getCotizacionById,
@@ -29,7 +29,7 @@ export async function GET(_request: Request, context: RouteContext) {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
-  const session = await requireWriteSession();
+  const session = await requireWriteCotizadorSession();
   if (session instanceof NextResponse) return session;
 
   const { id } = await context.params;
@@ -59,7 +59,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
-  const session = await requireWriteSession();
+  const session = await requireWriteCotizadorSession();
   if (session instanceof NextResponse) return session;
 
   const { id } = await context.params;

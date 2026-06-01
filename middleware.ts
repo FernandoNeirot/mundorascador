@@ -1,7 +1,7 @@
 import { jwtVerify } from "jose";
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth/constants";
-import { canReadStock, canWriteStock } from "@/lib/auth/permissions";
+import { canReadStock, canWriteCotizador, canWriteStock } from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/auth/types";
 
 function getAuthSecret(): Uint8Array {
@@ -58,7 +58,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/api/materials") || pathname.startsWith("/api/cotizador")) {
+  if (pathname.startsWith("/api/materials")) {
     if (!session || !canReadStock(session.role)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
@@ -70,6 +70,22 @@ export async function middleware(request: NextRequest) {
       request.method === "DELETE";
 
     if (isWriteMethod && !canWriteStock(session)) {
+      return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
+    }
+  }
+
+  if (pathname.startsWith("/api/cotizador")) {
+    if (!session || !canReadStock(session.role)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const isWriteMethod =
+      request.method === "POST" ||
+      request.method === "PATCH" ||
+      request.method === "PUT" ||
+      request.method === "DELETE";
+
+    if (isWriteMethod && !canWriteCotizador(session)) {
       return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
     }
   }

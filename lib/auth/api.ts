@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { canReadStock, canWriteStock } from "./permissions";
+import { canReadStock, canWriteCotizador, canWriteStock } from "./permissions";
 import { getSessionFromCookies } from "./session";
 import type { SessionUser } from "./types";
 
@@ -20,6 +20,19 @@ export async function requireWriteSession(): Promise<
   if (session instanceof NextResponse) return session;
 
   if (!canWriteStock(session)) {
+    return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
+  }
+
+  return session;
+}
+
+export async function requireWriteCotizadorSession(): Promise<
+  SessionUser | NextResponse
+> {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
+  if (!canWriteCotizador(session)) {
     return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
   }
 
