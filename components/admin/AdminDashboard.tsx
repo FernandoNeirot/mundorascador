@@ -11,6 +11,11 @@ const actions = [
     title: "Cotizador",
     description: "Armá presupuestos con los productos del stock.",
   },
+  {
+    href: "/admin/optimizador",
+    title: "Optimizador",
+    description: "Simulá cortes en una placa para reducir desperdicio.",
+  },
 ] as const;
 
 export default function AdminDashboard() {
