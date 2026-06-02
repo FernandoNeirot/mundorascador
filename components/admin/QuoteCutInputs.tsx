@@ -62,7 +62,7 @@ export default function QuoteCutInputs({
         </label>
         {showPieceCount && onPieceCountChange && (
           <label className={labelClassName}>
-            Piezas
+            Cantidad
             <input
               type="number"
               min="1"

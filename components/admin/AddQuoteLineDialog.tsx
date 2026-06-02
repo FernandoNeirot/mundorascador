@@ -183,7 +183,10 @@ export default function AddQuoteLineDialog({
   const draftProduct = productMap.get(draft.productKey);
   const draftCost = getQuoteLineCost(draft, draftProduct);
   const isMadera = draftProduct?.materialType === "maderas";
+  const isTela = draftProduct?.materialType === "telas";
+  const isCano = draftProduct?.materialType === "cano";
   const useCut = usesCutBasedQuantity(draftProduct);
+  const showPieceCount = isMadera || isTela || isCano;
 
   const fabricDraftCost =
     draft.woodFabric.fabricConfirmed && draft.woodFabric.fabricProductKey
@@ -211,6 +214,7 @@ export default function AddQuoteLineDialog({
         product?.materialType !== "maderas"
       ) {
         next.woodFabric = emptyWoodFabricDraft(telaProducts);
+        next.pieceCount = "1";
       }
 
       if (product?.materialType === "maderas") {
@@ -353,15 +357,46 @@ export default function AddQuoteLineDialog({
               anchoCm={draft.cutAnchoCm}
               largoCm={draft.cutLargoCm}
               pieceCount={draft.pieceCount}
-              showPieceCount={isMadera}
+              showPieceCount={showPieceCount}
               onAnchoChange={(value) => updateDraft({ cutAnchoCm: value })}
               onLargoChange={(value) => updateDraft({ cutLargoCm: value })}
               onPieceCountChange={
-                isMadera
+                showPieceCount
                   ? (value) => updateDraft({ pieceCount: value })
                   : undefined
               }
             />
+          ) : isCano ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className={labelClassName}>
+                Largo (cm)
+                <input
+                  type="number"
+                  min="0.01"
+                  step="any"
+                  value={draft.quantityUsed}
+                  onChange={(event) =>
+                    updateDraft({ quantityUsed: event.target.value })
+                  }
+                  placeholder="0"
+                  className={inputClassName}
+                />
+              </label>
+              <label className={labelClassName}>
+                Cantidad
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={draft.pieceCount}
+                  onChange={(event) =>
+                    updateDraft({ pieceCount: event.target.value })
+                  }
+                  placeholder="1"
+                  className={inputClassName}
+                />
+              </label>
+            </div>
           ) : (
             <label className={labelClassName}>
               Cantidad usada

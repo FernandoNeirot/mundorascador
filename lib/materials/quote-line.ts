@@ -7,6 +7,14 @@ export function usesCutBasedQuantity(
   return product?.materialType === "maderas" || product?.materialType === "telas";
 }
 
+export function usesPieceCount(product?: QuoteProductOption): boolean {
+  return (
+    product?.materialType === "maderas" ||
+    product?.materialType === "telas" ||
+    product?.materialType === "cano"
+  );
+}
+
 export function parseCutCm2(anchoCm: string, largoCm: string): number | null {
   const ancho = Number(anchoCm);
   const largo = Number(largoCm);
@@ -62,6 +70,12 @@ export function getQuoteLineCost(
 
   const quantity = Number(line.quantityUsed);
   if (!Number.isFinite(quantity) || quantity <= 0) return 0;
+
+  if (product.materialType === "cano") {
+    const pieces = Math.max(1, Number(line.pieceCount) || 1);
+    return quantity * pieces * product.unitPrice;
+  }
+
   return quantity * product.unitPrice;
 }
 
@@ -83,6 +97,13 @@ export function formatQuoteLineQuantity(
 
   const qty = line.quantityUsed.trim();
   if (!qty) return "Sin cantidad";
+
+  if (product.materialType === "cano") {
+    const pieces = Math.max(1, Number(line.pieceCount) || 1);
+    const measure = `${qty} ${product.quantityUnit}`;
+    return pieces > 1 ? `${measure} · ${pieces} piezas` : measure;
+  }
+
   return `${qty} ${product.quantityUnit}`;
 }
 
