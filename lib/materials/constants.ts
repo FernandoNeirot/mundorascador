@@ -5,7 +5,7 @@ export const MATERIAL_CONFIG: Record<MaterialType, { label: string }> = {
   guata: { label: "Guata" },
   hilo: { label: "Hilo" },
   maderas: { label: "Maderas" },
-  cano_pvc: { label: "Caño PVC" },
+  cano: { label: "Caño" },
   herramientas: { label: "Producto genérico" },
 };
 
@@ -25,7 +25,7 @@ export const MATERIAL_TYPES: MaterialType[] = [
   "guata",
   "hilo",
   "maderas",
-  "cano_pvc",
+  "cano",
 ];
 
 export const ALL_STOCK_TYPES = Object.keys(
@@ -46,9 +46,9 @@ export const isMeterBasedType = (
 ): type is "telas" | "guata" | "hilo" =>
   type === "telas" || type === "guata" || type === "hilo";
 
-export const isCanoPvcType = (
+export const isCanoType = (
   type: MaterialType,
-): type is "cano_pvc" => type === "cano_pvc";
+): type is "cano" => type === "cano";
 
 export const isFabricLikeEntry = (
   entry: { type: MaterialType },

@@ -15,6 +15,7 @@ export default function StockManager({
 }) {
   const [entries, setEntries] = useState(initialEntries);
   const [addOpen, setAddOpen] = useState(false);
+  const [duplicateFrom, setDuplicateFrom] = useState<StockEntry | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const refreshEntries = useCallback(async () => {
@@ -33,6 +34,21 @@ export default function StockManager({
   const handleSaved = async () => {
     await refreshEntries();
     setSuccess("Stock cargado correctamente.");
+  };
+
+  const openAdd = () => {
+    setDuplicateFrom(null);
+    setAddOpen(true);
+  };
+
+  const openDuplicate = (entry: StockEntry) => {
+    setDuplicateFrom(entry);
+    setAddOpen(true);
+  };
+
+  const closeAdd = () => {
+    setAddOpen(false);
+    setDuplicateFrom(null);
   };
 
   return (
@@ -74,7 +90,7 @@ export default function StockManager({
             {canWrite && (
               <button
                 type="button"
-                onClick={() => setAddOpen(true)}
+                onClick={openAdd}
                 className="inline-flex h-10 items-center justify-center rounded-lg bg-amber-700 px-4 text-sm font-medium text-white transition hover:bg-amber-800"
               >
                 Agregar
@@ -87,13 +103,15 @@ export default function StockManager({
           entries={entries}
           onRefresh={refreshEntries}
           canWrite={canWrite}
+          onDuplicate={openDuplicate}
         />
       </section>
 
       {canWrite && (
         <AddStockDialog
           open={addOpen}
-          onClose={() => setAddOpen(false)}
+          duplicateFrom={duplicateFrom}
+          onClose={closeAdd}
           onSaved={handleSaved}
         />
       )}

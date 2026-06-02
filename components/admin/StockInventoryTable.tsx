@@ -33,12 +33,14 @@ type StockInventoryTableProps = {
   entries: StockEntry[];
   onRefresh: () => Promise<void>;
   canWrite: boolean;
+  onDuplicate?: (entry: StockEntry) => void;
 };
 
 export default function StockInventoryTable({
   entries,
   onRefresh,
   canWrite,
+  onDuplicate,
 }: StockInventoryTableProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [editingEntry, setEditingEntry] = useState<StockEntry | null>(null);
@@ -237,7 +239,7 @@ export default function StockInventoryTable({
                                 </span>
                                 <span className="ml-1 text-zinc-500">
                                   (
-                                  {entry.type === "cano_pvc"
+                                  {entry.type === "cano"
                                     ? `${formatPrice(entry.price)}/cm × ${entry.largoCm.toLocaleString("es-AR")} cm`
                                     : isMeterBasedEntry(entry)
                                       ? `${formatPrice(entry.price)}/m × ${entry.quantity.toLocaleString("es-AR")} m`
@@ -246,15 +248,24 @@ export default function StockInventoryTable({
                                 </span>
                               </span>
                             </div>
-                            <div className="shrink-0">
+                            <div className="flex shrink-0 items-center gap-3">
                               {canWrite ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingEntry(entry)}
-                                  className="text-xs font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
-                                >
-                                  Editar
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => onDuplicate?.(entry)}
+                                    className="text-xs font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
+                                  >
+                                    Duplicar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingEntry(entry)}
+                                    className="text-xs font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
+                                  >
+                                    Editar
+                                  </button>
+                                </>
                               ) : (
                                 <span className="text-xs text-zinc-400">—</span>
                               )}

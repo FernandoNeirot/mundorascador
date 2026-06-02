@@ -3,7 +3,7 @@ export type MaterialType =
   | "guata"
   | "hilo"
   | "maderas"
-  | "cano_pvc"
+  | "cano"
   | "herramientas";
 
 export type FabricLikeType = "telas" | "guata";
@@ -71,9 +71,9 @@ export type MaderaStockEntry = BaseStockEntry & {
 
 export type StockEntryWithCortes = MaderaStockEntry | TelaStockEntry;
 
-export type CanoPvcStockEntry = BaseStockEntry & {
-  type: "cano_pvc";
-  anchoMm: number;
+export type CanoStockEntry = BaseStockEntry & {
+  type: "cano";
+  descripcion: string;
   largoCm: number;
 };
 
@@ -87,7 +87,7 @@ export type StockEntry =
   | GuataStockEntry
   | HiloStockEntry
   | MaderaStockEntry
-  | CanoPvcStockEntry
+  | CanoStockEntry
   | HerramientaStockEntry;
 
 type CreateStockBase = {
@@ -132,9 +132,9 @@ export type CreateMaderaInput = CreateStockBase & {
   cortes: StockCorte[];
 };
 
-export type CreateCanoPvcInput = CreateStockBase & {
-  type: "cano_pvc";
-  anchoMm: number;
+export type CreateCanoInput = CreateStockBase & {
+  type: "cano";
+  descripcion: string;
   largoCm: number;
 };
 
@@ -148,5 +148,5 @@ export type CreateStockEntryInput =
   | CreateGuataInput
   | CreateHiloInput
   | CreateMaderaInput
-  | CreateCanoPvcInput
+  | CreateCanoInput
   | CreateHerramientaInput;

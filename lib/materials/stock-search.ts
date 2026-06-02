@@ -41,8 +41,8 @@ function getEntrySearchParts(entry: StockEntry): string[] {
         String(entry.largoCm),
       );
       break;
-    case "cano_pvc":
-      parts.push(String(entry.anchoMm), String(entry.largoCm));
+    case "cano":
+      parts.push(entry.descripcion, String(entry.largoCm));
       break;
     case "herramientas":
       parts.push(entry.descripcion);

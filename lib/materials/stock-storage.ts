@@ -62,11 +62,11 @@ function buildEntry(
         tipoMadera: input.tipoMadera,
         cortes: input.cortes,
       };
-    case "cano_pvc":
+    case "cano":
       return {
         ...base,
-        type: "cano_pvc",
-        anchoMm: input.anchoMm,
+        type: "cano",
+        descripcion: input.descripcion,
         largoCm: input.largoCm,
       };
     case "herramientas":
@@ -92,8 +92,11 @@ function isValidStockEntry(value: unknown): value is StockEntry {
 }
 
 /** Convierte registros legacy (precio/metro, cantidad en metros) a precio/cm. */
-function normalizeCanoPvcDocument(data: DocumentData): void {
-  if (data.type !== "cano_pvc") return;
+function normalizeCanoDocument(data: DocumentData): void {
+  if (data.type === "cano_pvc") {
+    data.type = "cano";
+  }
+  if (data.type !== "cano") return;
 
   const largoCm = Number(data.largoCm);
   const quantity = Number(data.quantity);
@@ -122,12 +125,24 @@ function normalizeCanoPvcDocument(data: DocumentData): void {
   if (Number.isFinite(used) && used > 0 && used < largoCm) {
     data.cantidadUsada = used * CM_PER_METER;
   }
+
+  if (
+    typeof data.descripcion !== "string" ||
+    !data.descripcion.trim()
+  ) {
+    const anchoMm = Number(data.anchoMm);
+    if (Number.isFinite(anchoMm) && anchoMm > 0) {
+      data.descripcion = `Ø ${anchoMm} mm`;
+    } else {
+      data.descripcion = "Caño";
+    }
+  }
 }
 
 function docToEntry(id: string, data: DocumentData): StockEntry | null {
   const normalized = { ...data };
 
-  normalizeCanoPvcDocument(normalized);
+  normalizeCanoDocument(normalized);
 
   if (
     (normalized.type === "telas" || normalized.type === "guata") &&

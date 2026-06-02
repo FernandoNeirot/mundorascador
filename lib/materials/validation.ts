@@ -354,12 +354,12 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
     );
   }
 
-  if (type === "cano_pvc") {
-    const anchoMm = parsePositiveNumber(record.anchoMm, "ancho");
+  if (type === "cano") {
+    const descripcion = parseNonEmptyString(record.descripcion);
     const largoCm = parseLengthCm(record.largoCm);
 
-    if (anchoMm === null) {
-      return { ok: false, error: "El ancho debe ser mayor a 0 mm" };
+    if (!descripcion) {
+      return { ok: false, error: "Ingresá la descripción del caño." };
     }
     if (largoCm === null) {
       return { ok: false, error: "El largo debe ser mayor a 100 cm" };
@@ -367,8 +367,8 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
 
     return finalizeInput(
       {
-        type: "cano_pvc",
-        anchoMm,
+        type: "cano",
+        descripcion,
         largoCm,
         quantity: largoCm,
         price,

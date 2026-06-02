@@ -25,8 +25,8 @@ export function getStockGroupKey(entry: StockEntry): string {
       return `${base}|${entry.descripcion.toLowerCase()}|${entry.largoCm}`;
     case "maderas":
       return `${base}|${entry.tipoMadera}|${entry.anchoCm}|${entry.largoCm}`;
-    case "cano_pvc":
-      return `${base}|${entry.anchoMm}|${entry.largoCm}`;
+    case "cano":
+      return `${base}|${entry.descripcion.toLowerCase()}|${entry.largoCm}`;
     case "herramientas":
       return `${base}|${entry.descripcion.toLowerCase()}`;
   }

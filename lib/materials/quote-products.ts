@@ -22,6 +22,7 @@ function getEntryDescripcion(entry: StockEntry): string {
     case "guata":
     case "hilo":
     case "herramientas":
+    case "cano":
       return entry.descripcion;
     default:
       return formatEntryDetails(entry);
@@ -38,8 +39,8 @@ function getQuoteGroupKey(entry: StockEntry): string {
       return `${entry.type}|${entry.descripcion.toLowerCase()}|${entry.largoCm}`;
     case "maderas":
       return `${entry.type}|${entry.tipoMadera}|${entry.anchoCm}|${entry.largoCm}`;
-    case "cano_pvc":
-      return `${entry.type}|${entry.anchoMm}|${entry.largoCm}`;
+    case "cano":
+      return `${entry.type}|${entry.descripcion.toLowerCase()}|${entry.largoCm}`;
     case "herramientas":
       return `${entry.type}|${entry.descripcion.toLowerCase()}`;
   }
@@ -72,7 +73,7 @@ function weightedUnitPricePerCm2(entries: StockEntry[]): number {
 }
 
 function weightedUnitPricePerCm(entries: StockEntry[]): number {
-  const canoEntries = entries.filter((entry) => entry.type === "cano_pvc");
+  const canoEntries = entries.filter((entry) => entry.type === "cano");
   const totalCm = canoEntries.reduce((sum, entry) => sum + entry.largoCm, 0);
   if (totalCm <= 0) return 0;
 
@@ -94,7 +95,7 @@ function resolveQuotePricing(
     };
   }
 
-  if (sample.type === "cano_pvc") {
+  if (sample.type === "cano") {
     return {
       unitPrice: weightedUnitPricePerCm(groupEntries),
       quantityUnit: "cm",

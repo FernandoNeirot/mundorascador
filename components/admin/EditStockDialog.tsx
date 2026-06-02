@@ -5,7 +5,7 @@ import {
   BUYER_CONFIG,
   BUYER_TYPES,
   EDITABLE_MATERIAL_TYPES,
-  isCanoPvcType,
+  isCanoType,
   isFabricLikeType,
   isMeterBasedType,
   MATERIAL_CONFIG,
@@ -32,6 +32,7 @@ import type {
   WoodType,
 } from "@/lib/materials/types";
 import CortesStockDialog from "@/components/admin/CortesStockDialog";
+import PriceFieldWithCalculator from "@/components/admin/PriceFieldWithCalculator";
 
 const inputClassName =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
@@ -61,7 +62,6 @@ export default function EditStockDialog({
   const [largoCm, setLargoCm] = useState("");
   const [color, setColor] = useState("");
   const [tipoMadera, setTipoMadera] = useState<WoodType>("pino");
-  const [anchoMm, setAnchoMm] = useState("");
   const [cantidadUsada, setCantidadUsada] = useState("");
   const [cortesOpen, setCortesOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -78,7 +78,6 @@ export default function EditStockDialog({
     setAnchoCm("");
     setLargoCm("");
     setColor("");
-    setAnchoMm("");
     setTipoMadera("pino");
     setCantidadUsada("0");
 
@@ -102,8 +101,8 @@ export default function EditStockDialog({
         setTipoMadera(entry.tipoMadera);
         setQuantity(String(entry.quantity));
         break;
-      case "cano_pvc":
-        setAnchoMm(String(entry.anchoMm));
+      case "cano":
+        setDescripcion(entry.descripcion);
         setLargoCm(String(entry.largoCm));
         setQuantity(String(entry.largoCm));
         break;
@@ -121,7 +120,7 @@ export default function EditStockDialog({
       setQuantity(formatQuantityFromLength(largoCm));
       return;
     }
-    if (isCanoPvcType(editType)) {
+    if (isCanoType(editType)) {
       setQuantity(largoCm);
     }
   }, [editType, largoCm]);
@@ -168,12 +167,12 @@ export default function EditStockDialog({
 
   const handleTypeChange = (newType: MaterialType) => {
     const wasMeterBased = isMeterBasedType(editType);
-    const wasCano = isCanoPvcType(editType);
+    const wasCano = isCanoType(editType);
     setEditType(newType);
     setError(null);
     if (isMeterBasedType(newType)) {
       setQuantity(formatQuantityFromLength(largoCm));
-    } else if (isCanoPvcType(newType)) {
+    } else if (isCanoType(newType)) {
       setQuantity(largoCm);
     } else if (wasMeterBased || wasCano) {
       setQuantity("1");
@@ -186,7 +185,7 @@ export default function EditStockDialog({
       if (parsedLargo === null) return null;
       return quantityFromLengthCm(parsedLargo);
     }
-    if (isCanoPvcType(editType)) {
+    if (isCanoType(editType)) {
       return parseLengthField(largoCm, "El largo");
     }
     return parseField(quantity, "La cantidad");
@@ -296,14 +295,16 @@ export default function EditStockDialog({
           tipoMadera,
         };
       }
-      case "cano_pvc": {
-        const parsedAncho = parseField(anchoMm, "El ancho");
-        if (parsedAncho === null) return null;
+      case "cano": {
+        if (!descripcion.trim()) {
+          setError("Ingresá la descripción del caño.");
+          return null;
+        }
         const parsedLargo = parseLengthField(largoCm, "El largo");
         if (parsedLargo === null) return null;
         return {
           ...base,
-          anchoMm: parsedAncho,
+          descripcion: descripcion.trim(),
           largoCm: parsedLargo,
         };
       }
@@ -347,9 +348,9 @@ export default function EditStockDialog({
   };
 
   const quantityIsReadOnly =
-    isMeterBasedType(editType) || isCanoPvcType(editType);
+    isMeterBasedType(editType) || isCanoType(editType);
 
-  const quantityLabel = isCanoPvcType(editType)
+  const quantityLabel = isCanoType(editType)
     ? "Cantidad (cm)"
     : isMeterBasedType(editType)
       ? "Cantidad (metros)"
@@ -358,11 +359,26 @@ export default function EditStockDialog({
   const priceLabel =
     editType === "maderas"
       ? "Precio por cantidad cargada"
-      : isCanoPvcType(editType)
+      : isCanoType(editType)
         ? "Precio por cm"
         : isMeterBasedType(editType)
           ? "Precio por metro"
           : "Precio por unidad";
+
+  const priceUnitShort =
+    editType === "maderas"
+      ? "pieza"
+      : isCanoType(editType)
+        ? "cm"
+        : isMeterBasedType(editType)
+          ? "metro"
+          : "unidad";
+
+  const priceMeasureLabel = isCanoType(editType)
+    ? "Cantidad (cm)"
+    : isMeterBasedType(editType)
+      ? "Cantidad (metros)"
+      : "Cantidad";
 
   const parsedQuantityPreview = Number(quantity);
   const parsedUsedPreview = Number(cantidadUsada);
@@ -408,7 +424,7 @@ export default function EditStockDialog({
 
   const usedQuantityLabel = supportsCortesTracking(editType)
     ? "Superficie usada (cm²)"
-    : isCanoPvcType(editType)
+    : isCanoType(editType)
       ? "Cantidad usada (cm)"
       : isMeterBasedType(editType)
         ? "Cantidad usada (metros)"
@@ -616,16 +632,15 @@ export default function EditStockDialog({
             </>
           )}
 
-          {editType === "cano_pvc" && (
-            <div className="grid gap-4 sm:grid-cols-2">
+          {editType === "cano" && (
+            <>
               <label className={labelClassName}>
-                Ancho (mm)
+                Descripción
                 <input
-                  type="number"
-                  min="0.01"
-                  step="any"
-                  value={anchoMm}
-                  onChange={(event) => setAnchoMm(event.target.value)}
+                  type="text"
+                  value={descripcion}
+                  onChange={(event) => setDescripcion(event.target.value)}
+                  placeholder="Ej. Ø 40 mm"
                   className={inputClassName}
                 />
               </label>
@@ -640,7 +655,7 @@ export default function EditStockDialog({
                   className={inputClassName}
                 />
               </label>
-            </div>
+            </>
           )}
 
           {editType === "herramientas" && (
@@ -672,7 +687,7 @@ export default function EditStockDialog({
                 placeholder={
                   isMeterBasedType(editType)
                     ? "Se calcula del largo"
-                    : isCanoPvcType(editType)
+                    : isCanoType(editType)
                       ? "Igual al largo en cm"
                       : undefined
                 }
@@ -680,25 +695,22 @@ export default function EditStockDialog({
                   quantityIsReadOnly ? readOnlyInputClassName : inputClassName
                 }
               />
-              {(isMeterBasedType(editType) || isCanoPvcType(editType)) && (
+              {(isMeterBasedType(editType) || isCanoType(editType)) && (
                 <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                  {isCanoPvcType(editType)
+                  {isCanoType(editType)
                     ? "Coincide con el largo del caño en cm."
                     : "Largo ÷ 100 (1 metro = 100 cm)."}
                 </span>
               )}
             </label>
-            <label className={labelClassName}>
-              {priceLabel}
-              <input
-                type="number"
-                min="0.01"
-                step="any"
-                value={price}
-                onChange={(event) => setPrice(event.target.value)}
-                className={inputClassName}
-              />
-            </label>
+            <PriceFieldWithCalculator
+              label={priceLabel}
+              value={price}
+              onChange={setPrice}
+              unitShort={priceUnitShort}
+              measureValue={quantity}
+              measureLabel={priceMeasureLabel}
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

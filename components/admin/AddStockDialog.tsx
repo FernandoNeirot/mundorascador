@@ -10,13 +10,10 @@ import {
   WOOD_TYPE_CONFIG,
   WOOD_TYPES,
 } from "@/lib/materials/constants";
-import {
-  formatQuantityFromLength,
-  isValidLengthCm,
-  quantityFromLengthCm,
-} from "@/lib/materials/meter-based";
+import { formatQuantityFromLength, isValidLengthCm, quantityFromLengthCm } from "@/lib/materials/meter-based";
 import { formatSuperficieCm2Preview } from "@/lib/materials/superficie";
-import type { BuyerType, MaterialType, WoodType } from "@/lib/materials/types";
+import PriceFieldWithCalculator from "@/components/admin/PriceFieldWithCalculator";
+import type { BuyerType, MaterialType, StockEntry, WoodType } from "@/lib/materials/types";
 
 const inputClassName =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
@@ -51,7 +48,7 @@ const emptyMaderaForm = {
 };
 
 const emptyCanoForm = {
-  anchoMm: "",
+  descripcion: "",
   largoCm: "",
   cantidad: "",
   precio: "",
@@ -63,14 +60,107 @@ const emptyHerramientaForm = {
   precio: "",
 };
 
+function getDuplicateFormState(entry: StockEntry) {
+  const price = String(entry.price);
+  const compradoPor = entry.compradoPor;
+
+  switch (entry.type) {
+    case "herramientas":
+      return {
+        esHerramienta: true as const,
+        type: "telas" as MaterialType,
+        compradoPor,
+        telaForm: emptyTelaForm,
+        hiloForm: emptyHiloForm,
+        maderaForm: emptyMaderaForm,
+        canoForm: emptyCanoForm,
+        herramientaForm: {
+          descripcion: entry.descripcion,
+          cantidad: String(entry.quantity),
+          precio: price,
+        },
+      };
+    case "telas":
+    case "guata":
+      return {
+        esHerramienta: false as const,
+        type: entry.type,
+        compradoPor,
+        telaForm: {
+          descripcion: entry.descripcion,
+          anchoCm: String(entry.anchoCm),
+          largoCm: String(entry.largoCm),
+          color: entry.color,
+          cantidad: formatQuantityFromLength(String(entry.largoCm)),
+          precio: price,
+        },
+        hiloForm: emptyHiloForm,
+        maderaForm: emptyMaderaForm,
+        canoForm: emptyCanoForm,
+        herramientaForm: emptyHerramientaForm,
+      };
+    case "hilo":
+      return {
+        esHerramienta: false as const,
+        type: "hilo" as const,
+        compradoPor,
+        telaForm: emptyTelaForm,
+        hiloForm: {
+          descripcion: entry.descripcion,
+          largoCm: String(entry.largoCm),
+          cantidad: formatQuantityFromLength(String(entry.largoCm)),
+          precio: price,
+        },
+        maderaForm: emptyMaderaForm,
+        canoForm: emptyCanoForm,
+        herramientaForm: emptyHerramientaForm,
+      };
+    case "maderas":
+      return {
+        esHerramienta: false as const,
+        type: "maderas" as const,
+        compradoPor,
+        telaForm: emptyTelaForm,
+        hiloForm: emptyHiloForm,
+        maderaForm: {
+          anchoCm: String(entry.anchoCm),
+          largoCm: String(entry.largoCm),
+          tipoMadera: entry.tipoMadera,
+          cantidad: String(entry.quantity),
+          precio: price,
+        },
+        canoForm: emptyCanoForm,
+        herramientaForm: emptyHerramientaForm,
+      };
+    case "cano":
+      return {
+        esHerramienta: false as const,
+        type: "cano" as const,
+        compradoPor,
+        telaForm: emptyTelaForm,
+        hiloForm: emptyHiloForm,
+        maderaForm: emptyMaderaForm,
+        canoForm: {
+          descripcion: entry.descripcion,
+          largoCm: String(entry.largoCm),
+          cantidad: String(entry.largoCm),
+          precio: price,
+        },
+        herramientaForm: emptyHerramientaForm,
+      };
+  }
+}
+
 type AddStockDialogProps = {
   open: boolean;
+  duplicateFrom?: StockEntry | null;
   onClose: () => void;
   onSaved: () => void;
 };
 
 export default function AddStockDialog({
   open,
+  duplicateFrom = null,
   onClose,
   onSaved,
 }: AddStockDialogProps) {
@@ -88,6 +178,20 @@ export default function AddStockDialog({
   useEffect(() => {
     if (!open) return;
 
+    if (duplicateFrom) {
+      const state = getDuplicateFormState(duplicateFrom);
+      setEsHerramienta(state.esHerramienta);
+      setType(state.type);
+      setCompradoPor(state.compradoPor);
+      setTelaForm(state.telaForm);
+      setHiloForm(state.hiloForm);
+      setMaderaForm(state.maderaForm);
+      setCanoForm(state.canoForm);
+      setHerramientaForm(state.herramientaForm);
+      setError(null);
+      return;
+    }
+
     setEsHerramienta(false);
     setType("telas");
     setCompradoPor("fernando");
@@ -97,7 +201,7 @@ export default function AddStockDialog({
     setCanoForm(emptyCanoForm);
     setHerramientaForm(emptyHerramientaForm);
     setError(null);
-  }, [open]);
+  }, [open, duplicateFrom]);
 
   if (!open) return null;
 
@@ -208,16 +312,18 @@ export default function AddStockDialog({
       };
     }
 
-    const anchoMm = parseField(canoForm.anchoMm, "El ancho");
-    if (anchoMm === null) return null;
+    if (!canoForm.descripcion.trim()) {
+      setError("Ingresá la descripción del caño.");
+      return null;
+    }
     const largoCm = parseLengthField(canoForm.largoCm, "El largo");
     if (largoCm === null) return null;
     const price = parseField(canoForm.precio, "El precio");
     if (price === null) return null;
 
     return {
-      type: "cano_pvc",
-      anchoMm,
+      type: "cano",
+      descripcion: canoForm.descripcion.trim(),
       largoCm,
       quantity: largoCm,
       price,
@@ -265,10 +371,12 @@ export default function AddStockDialog({
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-50">
-              Cargar stock
+              {duplicateFrom ? "Duplicar registro" : "Cargar stock"}
             </h3>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              Completá los datos del material a agregar.
+              {duplicateFrom
+                ? "Revisá los datos y guardá un registro nuevo."
+                : "Completá los datos del material a agregar."}
             </p>
           </div>
           <button
@@ -344,23 +452,17 @@ export default function AddStockDialog({
                   className={inputClassName}
                 />
               </label>
-              <label className={`${labelClassName} sm:col-span-2`}>
-                Precio por unidad
-                <input
-                  type="number"
-                  min="0.01"
-                  step="any"
-                  value={herramientaForm.precio}
-                  onChange={(event) =>
-                    setHerramientaForm({
-                      ...herramientaForm,
-                      precio: event.target.value,
-                    })
-                  }
-                  placeholder="0"
-                  className={inputClassName}
-                />
-              </label>
+              <PriceFieldWithCalculator
+                label="Precio por unidad"
+                value={herramientaForm.precio}
+                onChange={(precio) =>
+                  setHerramientaForm({ ...herramientaForm, precio })
+                }
+                unitShort="unidad"
+                measureValue={herramientaForm.cantidad}
+                measureLabel="Cantidad"
+                className={`${labelClassName} sm:col-span-2`}
+              />
             </div>
           ) : (
             <>
@@ -472,20 +574,16 @@ export default function AddStockDialog({
                       className={readOnlyInputClassName}
                     />
                   </label>
-                  <label className={labelClassName}>
-                    Precio por metro
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      value={telaForm.precio}
-                      onChange={(event) =>
-                        setTelaForm({ ...telaForm, precio: event.target.value })
-                      }
-                      placeholder="0"
-                      className={inputClassName}
-                    />
-                  </label>
+                  <PriceFieldWithCalculator
+                    label="Precio por metro"
+                    value={telaForm.precio}
+                    onChange={(precio) =>
+                      setTelaForm({ ...telaForm, precio })
+                    }
+                    unitShort="metro"
+                    measureValue={telaForm.cantidad}
+                    measureLabel="Cantidad (metros)"
+                  />
                 </div>
               )}
 
@@ -532,20 +630,16 @@ export default function AddStockDialog({
                       className={readOnlyInputClassName}
                     />
                   </label>
-                  <label className={labelClassName}>
-                    Precio por metro
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      value={hiloForm.precio}
-                      onChange={(event) =>
-                        setHiloForm({ ...hiloForm, precio: event.target.value })
-                      }
-                      placeholder="0"
-                      className={inputClassName}
-                    />
-                  </label>
+                  <PriceFieldWithCalculator
+                    label="Precio por metro"
+                    value={hiloForm.precio}
+                    onChange={(precio) =>
+                      setHiloForm({ ...hiloForm, precio })
+                    }
+                    unitShort="metro"
+                    measureValue={hiloForm.cantidad}
+                    measureLabel="Cantidad (metros)"
+                  />
                 </div>
               )}
 
@@ -628,36 +722,34 @@ export default function AddStockDialog({
                       className={inputClassName}
                     />
                   </label>
-                  <label className={`${labelClassName} sm:col-span-2`}>
-                    Precio por cantidad cargada
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      value={maderaForm.precio}
-                      onChange={(event) =>
-                        setMaderaForm({ ...maderaForm, precio: event.target.value })
-                      }
-                      placeholder="0"
-                      className={inputClassName}
-                    />
-                  </label>
+                  <PriceFieldWithCalculator
+                    label="Precio por cantidad cargada"
+                    value={maderaForm.precio}
+                    onChange={(precio) =>
+                      setMaderaForm({ ...maderaForm, precio })
+                    }
+                    unitShort="pieza"
+                    measureValue={maderaForm.cantidad}
+                    measureLabel="Cantidad"
+                    className={`${labelClassName} sm:col-span-2`}
+                  />
                 </div>
               )}
 
-              {type === "cano_pvc" && (
+              {type === "cano" && (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className={labelClassName}>
-                    Ancho (mm)
+                  <label className={`${labelClassName} sm:col-span-2`}>
+                    Descripción
                     <input
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      value={canoForm.anchoMm}
+                      type="text"
+                      value={canoForm.descripcion}
                       onChange={(event) =>
-                        setCanoForm({ ...canoForm, anchoMm: event.target.value })
+                        setCanoForm({
+                          ...canoForm,
+                          descripcion: event.target.value,
+                        })
                       }
-                      placeholder="40"
+                      placeholder="Ej. Ø 40 mm"
                       className={inputClassName}
                     />
                   </label>
@@ -690,20 +782,16 @@ export default function AddStockDialog({
                       className={readOnlyInputClassName}
                     />
                   </label>
-                  <label className={labelClassName}>
-                    Precio por cm
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      value={canoForm.precio}
-                      onChange={(event) =>
-                        setCanoForm({ ...canoForm, precio: event.target.value })
-                      }
-                      placeholder="0"
-                      className={inputClassName}
-                    />
-                  </label>
+                  <PriceFieldWithCalculator
+                    label="Precio por cm"
+                    value={canoForm.precio}
+                    onChange={(precio) =>
+                      setCanoForm({ ...canoForm, precio })
+                    }
+                    unitShort="cm"
+                    measureValue={canoForm.cantidad}
+                    measureLabel="Cantidad (cm)"
+                  />
                 </div>
               )}
             </>
