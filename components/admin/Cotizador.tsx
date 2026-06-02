@@ -16,7 +16,7 @@ function createDraftCotizacion(): Cotizacion {
   const now = new Date().toISOString();
   return {
     id: DRAFT_ID,
-    nombre: "Nueva cotización",
+    nombre: "",
     descripcion: "",
     materiales: [],
     createdAt: now,
