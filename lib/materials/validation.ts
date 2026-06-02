@@ -1,4 +1,4 @@
-import { ALL_STOCK_TYPES, BUYER_TYPES, WOOD_TYPES } from "./constants";
+import { ALL_STOCK_TYPES, BUYER_TYPES, WOOD_TYPES, defaultUsarEnProductos } from "./constants";
 import {
   isValidLengthCm,
   quantityFromLengthCm,
@@ -201,21 +201,33 @@ function parseCortes(value: unknown): StockCorte[] | { error: string } {
   return cortes;
 }
 
+function parseUsarEnProductos(
+  record: Record<string, unknown>,
+  type: MaterialType,
+): boolean {
+  if (typeof record.usarEnProductos === "boolean") {
+    return record.usarEnProductos;
+  }
+  return defaultUsarEnProductos(type);
+}
+
 function finalizeInput(
   data: CreateStockEntryInput,
   record: Record<string, unknown>,
+  usarEnProductos: boolean,
 ): ValidationResult {
   const cantidadUsada = parseCantidadUsada(record.cantidadUsada, data.quantity);
   if (typeof cantidadUsada === "object") {
     return { ok: false, error: cantidadUsada.error };
   }
-  return { ok: true, data: { ...data, cantidadUsada } };
+  return { ok: true, data: { ...data, cantidadUsada, usarEnProductos } };
 }
 
 function finalizeWithCortes<T extends CreateMaderaInput | CreateTelaInput>(
   data: T,
   record: Record<string, unknown>,
   getStockCm2: (data: T) => number,
+  usarEnProductos: boolean,
 ): ValidationResult {
   const cortes = parseCortes(record.cortes);
   if ("error" in cortes) {
@@ -234,7 +246,12 @@ function finalizeWithCortes<T extends CreateMaderaInput | CreateTelaInput>(
 
   return {
     ok: true,
-    data: { ...data, cortes, cantidadUsada: usedCm2 } as CreateStockEntryInput,
+    data: {
+      ...data,
+      cortes,
+      cantidadUsada: usedCm2,
+      usarEnProductos,
+    } as CreateStockEntryInput,
   };
 }
 
@@ -260,6 +277,8 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
     return { ok: false, error: "Seleccioná quién compró el material" };
   }
 
+  const usarEnProductos = parseUsarEnProductos(record, type as MaterialType);
+
   if (type === "telas") {
     const tela = parseTelaInput(record, price, compradoPor);
     if ("error" in tela) {
@@ -273,6 +292,7 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
       },
       record,
       getTelaStockCm2,
+      usarEnProductos,
     );
   }
 
@@ -281,7 +301,7 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
     if ("error" in guata) {
       return { ok: false, error: guata.error };
     }
-    return finalizeInput(guata, record);
+    return finalizeInput(guata, record, usarEnProductos);
   }
 
   if (type === "hilo") {
@@ -289,7 +309,7 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
     if ("error" in hilo) {
       return { ok: false, error: hilo.error };
     }
-    return finalizeInput(hilo, record);
+    return finalizeInput(hilo, record, usarEnProductos);
   }
 
   if (type === "maderas") {
@@ -328,6 +348,7 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
       },
       record,
       getMaderaStockCm2,
+      usarEnProductos,
     );
   }
 
@@ -351,6 +372,7 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
         compradoPor,
       },
       record,
+      usarEnProductos,
     );
   }
 
@@ -375,6 +397,7 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
         compradoPor,
       },
       record,
+      usarEnProductos,
     );
   }
 

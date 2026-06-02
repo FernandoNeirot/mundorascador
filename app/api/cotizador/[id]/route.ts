@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession, requireWriteCotizadorSession } from "@/lib/auth/api";
+import { canEditCotizacion } from "@/lib/cotizador/permissions";
 import {
   deleteCotizacion,
   getCotizacionById,
@@ -47,6 +48,21 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
+  const existing = await getCotizacionById(id);
+  if (!existing) {
+    return NextResponse.json(
+      { error: "Cotización no encontrada." },
+      { status: 404 },
+    );
+  }
+
+  if (!canEditCotizacion(session, existing)) {
+    return NextResponse.json(
+      { error: "No tenés permiso para editar esta cotización." },
+      { status: 403 },
+    );
+  }
+
   const cotizacion = await updateCotizacion(id, validation.data);
   if (!cotizacion) {
     return NextResponse.json(
@@ -63,6 +79,22 @@ export async function DELETE(_request: Request, context: RouteContext) {
   if (session instanceof NextResponse) return session;
 
   const { id } = await context.params;
+
+  const existing = await getCotizacionById(id);
+  if (!existing) {
+    return NextResponse.json(
+      { error: "Cotización no encontrada." },
+      { status: 404 },
+    );
+  }
+
+  if (!canEditCotizacion(session, existing)) {
+    return NextResponse.json(
+      { error: "No tenés permiso para eliminar esta cotización." },
+      { status: 403 },
+    );
+  }
+
   const deleted = await deleteCotizacion(id);
 
   if (!deleted) {

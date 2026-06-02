@@ -5,20 +5,38 @@ import { useMemo, useState } from "react";
 import CotizacionEditor from "@/components/admin/CotizacionEditor";
 import CotizacionList from "@/components/admin/CotizacionList";
 import { buildQuoteProductOptions } from "@/lib/materials/quote-products";
+import { isCotizacionOwnedBy } from "@/lib/cotizador/permissions";
 import type { Cotizacion } from "@/lib/cotizador/types";
 import type { CommittedQuoteLine } from "@/lib/materials/quote-line";
 import type { StockEntry } from "@/lib/materials/types";
+
+const DRAFT_ID = "__draft__";
+
+function createDraftCotizacion(): Cotizacion {
+  const now = new Date().toISOString();
+  return {
+    id: DRAFT_ID,
+    nombre: "Nueva cotización",
+    descripcion: "",
+    materiales: [],
+    createdAt: now,
+    updatedAt: now,
+    createdBy: "",
+  };
+}
 
 type CotizadorProps = {
   initialEntries: StockEntry[];
   initialCotizaciones: Cotizacion[];
   canWrite: boolean;
+  currentUsername: string;
 };
 
 export default function Cotizador({
   initialEntries,
   initialCotizaciones,
   canWrite,
+  currentUsername,
 }: CotizadorProps) {
   const products = useMemo(
     () => buildQuoteProductOptions(initialEntries),
@@ -32,21 +50,39 @@ export default function Cotizador({
 
   const [cotizaciones, setCotizaciones] =
     useState<Cotizacion[]>(initialCotizaciones);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    initialCotizaciones[0]?.id ?? null,
+  const [draftCotizacion, setDraftCotizacion] = useState<Cotizacion | null>(
+    null,
   );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selected = cotizaciones.find(
-    (cotizacion) => cotizacion.id === selectedId,
-  );
+  const isDraft = selectedId === DRAFT_ID;
+  const selected = isDraft
+    ? draftCotizacion
+    : cotizaciones.find((cotizacion) => cotizacion.id === selectedId);
+
+  const canEditSelected =
+    isDraft && selected
+      ? canWrite
+      : selected
+        ? canWrite && isCotizacionOwnedBy(currentUsername, selected)
+        : false;
 
   const updateSelected = (patch: Partial<Cotizacion>) => {
+    if (isDraft) {
+      setDraftCotizacion((current) =>
+        current ? { ...current, ...patch } : current,
+      );
+      setDirty(true);
+      setError(null);
+      return;
+    }
+
     if (!selectedId) return;
+    if (!canEditSelected) return;
     setCotizaciones((current) =>
       current.map((cotizacion) =>
         cotizacion.id === selectedId
@@ -58,65 +94,110 @@ export default function Cotizador({
     setError(null);
   };
 
-  const handleSelect = (id: string) => {
+  const discardDraft = () => {
+    setDraftCotizacion(null);
+    setSelectedId(null);
+    setDirty(false);
+    setError(null);
+  };
+
+  const handleClose = () => {
     if (dirty) {
+      const confirmLeave = window.confirm(
+        isDraft
+          ? "Hay cambios sin guardar. ¿Querés descartar la cotización nueva?"
+          : "Hay cambios sin guardar. ¿Querés cerrar igual?",
+      );
+      if (!confirmLeave) return;
+    }
+
+    if (isDraft) {
+      discardDraft();
+      return;
+    }
+
+    setSelectedId(null);
+    setDirty(false);
+    setError(null);
+  };
+
+  const handleOpen = (id: string) => {
+    if (isDraft) {
+      if (dirty) {
+        const confirmLeave = window.confirm(
+          "Hay una cotización nueva sin guardar. ¿Querés descartarla y abrir otra?",
+        );
+        if (!confirmLeave) return;
+      }
+      setDraftCotizacion(null);
+    } else if (dirty && selectedId) {
       const confirmLeave = window.confirm(
         "Hay cambios sin guardar. ¿Querés cambiar de cotización igual?",
       );
       if (!confirmLeave) return;
     }
+
     setSelectedId(id);
     setDirty(false);
     setError(null);
   };
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!canWrite) return;
-    setCreating(true);
-    setError(null);
 
-    try {
-      const response = await fetch("/api/cotizador", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: "Nueva cotización",
-          descripcion: "",
-          materiales: [],
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.error ?? "No se pudo crear la cotización.");
-        return;
+    if (isDraft) {
+      if (dirty) {
+        const confirmReplace = window.confirm(
+          "Hay una cotización nueva sin guardar. ¿Querés descartarla y empezar otra?",
+        );
+        if (!confirmReplace) return;
       }
-
-      setCotizaciones((current) => [data, ...current]);
-      setSelectedId(data.id);
-      setDirty(false);
-    } catch {
-      setError("Error de conexión al crear la cotización.");
-    } finally {
-      setCreating(false);
+      setDraftCotizacion(null);
     }
+
+    setError(null);
+    setDraftCotizacion(createDraftCotizacion());
+    setSelectedId(DRAFT_ID);
+    setDirty(true);
   };
 
   const handleSave = async () => {
-    if (!canWrite || !selected) return;
+    if (!canEditSelected || !selected) return;
 
     setSaving(true);
     setError(null);
 
+    const payload = {
+      nombre: selected.nombre,
+      descripcion: selected.descripcion,
+      materiales: selected.materiales,
+    };
+
     try {
+      if (isDraft) {
+        const response = await fetch("/api/cotizador", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          setError(data.error ?? "No se pudo crear la cotización.");
+          return;
+        }
+
+        setCotizaciones((current) => [data, ...current]);
+        setDraftCotizacion(null);
+        setSelectedId(data.id);
+        setDirty(false);
+        return;
+      }
+
       const response = await fetch(`/api/cotizador/${selected.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: selected.nombre,
-          descripcion: selected.descripcion,
-          materiales: selected.materiales,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -132,14 +213,27 @@ export default function Cotizador({
       );
       setDirty(false);
     } catch {
-      setError("Error de conexión al guardar.");
+      setError(
+        isDraft
+          ? "Error de conexión al crear la cotización."
+          : "Error de conexión al guardar.",
+      );
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!canWrite || !selected) return;
+    if (!canEditSelected || !selected) return;
+
+    if (isDraft) {
+      const confirmed = window.confirm(
+        "¿Descartar la cotización nueva sin guardar?",
+      );
+      if (!confirmed) return;
+      discardDraft();
+      return;
+    }
 
     const confirmed = window.confirm(
       `¿Eliminar la cotización "${selected.nombre}"?`,
@@ -160,11 +254,10 @@ export default function Cotizador({
         return;
       }
 
-      const remaining = cotizaciones.filter(
-        (cotizacion) => cotizacion.id !== selected.id,
+      setCotizaciones((current) =>
+        current.filter((cotizacion) => cotizacion.id !== selected.id),
       );
-      setCotizaciones(remaining);
-      setSelectedId(remaining[0]?.id ?? null);
+      setSelectedId(null);
       setDirty(false);
     } catch {
       setError("Error de conexión al eliminar.");
@@ -174,7 +267,7 @@ export default function Cotizador({
   };
 
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
+    <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
       <header>
         <Link
           href="/admin"
@@ -203,49 +296,59 @@ export default function Cotizador({
           para usar el cotizador.
         </div>
       ) : (
-        <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,280px)_1fr]">
-          <CotizacionList
-            cotizaciones={cotizaciones}
-            selectedId={selectedId}
-            productMap={productMap}
-            canWrite={canWrite}
-            onSelect={handleSelect}
-            onCreate={handleCreate}
-            creating={creating}
-          />
-
-          {selected ? (
-            <CotizacionEditor
-              cotizacion={selected}
-              products={products}
-              productMap={productMap}
-              canWrite={canWrite}
-              dirty={dirty}
-              saving={saving}
-              deleting={deleting}
-              error={error}
-              onNombreChange={(nombre) => updateSelected({ nombre })}
-              onDescripcionChange={(descripcion) =>
-                updateSelected({ descripcion })
-              }
-              onMaterialesChange={(materiales: CommittedQuoteLine[]) =>
-                updateSelected({ materiales })
-              }
-              onSave={handleSave}
-              onDelete={handleDelete}
-            />
-          ) : (
-            <section className="flex min-h-[280px] items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
-              {canWrite
-                ? "Creá una cotización nueva o seleccioná una de la lista."
-                : "Seleccioná una cotización de la lista."}
-            </section>
-          )}
-        </div>
+        <CotizacionList
+          cotizaciones={cotizaciones}
+          productMap={productMap}
+          canWrite={canWrite}
+          currentUsername={currentUsername}
+          onOpen={handleOpen}
+          onCreate={handleCreate}
+        />
       )}
 
       {error && !selected && (
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+      )}
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cotizacion-editor-title"
+            className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+          >
+            <div className="overflow-y-auto p-4 sm:p-6">
+              <CotizacionEditor
+                cotizacion={selected}
+                products={products}
+                productMap={productMap}
+                canWrite={canEditSelected}
+                viewOnlyNote={
+                  !canEditSelected && !isDraft && canWrite
+                    ? "Solo podés editar tus propias cotizaciones."
+                    : undefined
+                }
+                dirty={dirty}
+                saving={saving}
+                deleting={deleting}
+                isDraft={isDraft}
+                error={error}
+                inModal
+                onClose={handleClose}
+                onNombreChange={(nombre) => updateSelected({ nombre })}
+                onDescripcionChange={(descripcion) =>
+                  updateSelected({ descripcion })
+                }
+                onMaterialesChange={(materiales: CommittedQuoteLine[]) =>
+                  updateSelected({ materiales })
+                }
+                onSave={handleSave}
+                onDelete={handleDelete}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

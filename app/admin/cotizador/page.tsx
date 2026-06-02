@@ -19,6 +19,7 @@ export default async function AdminCotizadorPage() {
       initialEntries={entries}
       initialCotizaciones={cotizaciones}
       canWrite={canWriteCotizador(session)}
+      currentUsername={session.username}
     />
   );
 }

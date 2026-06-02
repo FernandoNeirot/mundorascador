@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   BUYER_CONFIG,
   BUYER_TYPES,
+  defaultUsarEnProductos,
   isFabricLikeType,
   MATERIAL_CONFIG,
   MATERIAL_TYPES,
@@ -63,6 +64,7 @@ const emptyHerramientaForm = {
 function getDuplicateFormState(entry: StockEntry) {
   const price = String(entry.price);
   const compradoPor = entry.compradoPor;
+  const usarEnProductos = entry.usarEnProductos;
 
   switch (entry.type) {
     case "herramientas":
@@ -70,6 +72,7 @@ function getDuplicateFormState(entry: StockEntry) {
         esHerramienta: true as const,
         type: "telas" as MaterialType,
         compradoPor,
+        usarEnProductos,
         telaForm: emptyTelaForm,
         hiloForm: emptyHiloForm,
         maderaForm: emptyMaderaForm,
@@ -86,6 +89,7 @@ function getDuplicateFormState(entry: StockEntry) {
         esHerramienta: false as const,
         type: entry.type,
         compradoPor,
+        usarEnProductos,
         telaForm: {
           descripcion: entry.descripcion,
           anchoCm: String(entry.anchoCm),
@@ -104,6 +108,7 @@ function getDuplicateFormState(entry: StockEntry) {
         esHerramienta: false as const,
         type: "hilo" as const,
         compradoPor,
+        usarEnProductos,
         telaForm: emptyTelaForm,
         hiloForm: {
           descripcion: entry.descripcion,
@@ -120,6 +125,7 @@ function getDuplicateFormState(entry: StockEntry) {
         esHerramienta: false as const,
         type: "maderas" as const,
         compradoPor,
+        usarEnProductos,
         telaForm: emptyTelaForm,
         hiloForm: emptyHiloForm,
         maderaForm: {
@@ -137,6 +143,7 @@ function getDuplicateFormState(entry: StockEntry) {
         esHerramienta: false as const,
         type: "cano" as const,
         compradoPor,
+        usarEnProductos,
         telaForm: emptyTelaForm,
         hiloForm: emptyHiloForm,
         maderaForm: emptyMaderaForm,
@@ -167,6 +174,7 @@ export default function AddStockDialog({
   const [esHerramienta, setEsHerramienta] = useState(false);
   const [type, setType] = useState<MaterialType>("telas");
   const [compradoPor, setCompradoPor] = useState<BuyerType>("fernando");
+  const [usarEnProductos, setUsarEnProductos] = useState(true);
   const [telaForm, setTelaForm] = useState(emptyTelaForm);
   const [hiloForm, setHiloForm] = useState(emptyHiloForm);
   const [maderaForm, setMaderaForm] = useState(emptyMaderaForm);
@@ -183,6 +191,7 @@ export default function AddStockDialog({
       setEsHerramienta(state.esHerramienta);
       setType(state.type);
       setCompradoPor(state.compradoPor);
+      setUsarEnProductos(state.usarEnProductos);
       setTelaForm(state.telaForm);
       setHiloForm(state.hiloForm);
       setMaderaForm(state.maderaForm);
@@ -195,6 +204,7 @@ export default function AddStockDialog({
     setEsHerramienta(false);
     setType("telas");
     setCompradoPor("fernando");
+    setUsarEnProductos(true);
     setTelaForm(emptyTelaForm);
     setHiloForm(emptyHiloForm);
     setMaderaForm(emptyMaderaForm);
@@ -240,6 +250,7 @@ export default function AddStockDialog({
         quantity,
         price,
         compradoPor,
+        usarEnProductos,
       };
     }
 
@@ -268,6 +279,7 @@ export default function AddStockDialog({
         quantity: quantityFromLengthCm(largoCm),
         price,
         compradoPor,
+        usarEnProductos,
       };
     }
 
@@ -288,6 +300,7 @@ export default function AddStockDialog({
         quantity: quantityFromLengthCm(largoCm),
         price,
         compradoPor,
+        usarEnProductos,
       };
     }
 
@@ -309,6 +322,7 @@ export default function AddStockDialog({
         quantity,
         price,
         compradoPor,
+        usarEnProductos,
       };
     }
 
@@ -328,6 +342,7 @@ export default function AddStockDialog({
       quantity: largoCm,
       price,
       compradoPor,
+      usarEnProductos,
     };
   };
 
@@ -395,6 +410,9 @@ export default function AddStockDialog({
               checked={esHerramienta}
               onChange={(event) => {
                 setEsHerramienta(event.target.checked);
+                setUsarEnProductos(
+                  event.target.checked ? false : defaultUsarEnProductos(type),
+                );
                 setError(null);
               }}
               className="size-4 rounded border-zinc-300 text-amber-700 focus:ring-amber-600/20"
@@ -472,7 +490,9 @@ export default function AddStockDialog({
                   <select
                     value={type}
                     onChange={(event) => {
-                      setType(event.target.value as MaterialType);
+                      const newType = event.target.value as MaterialType;
+                      setType(newType);
+                      setUsarEnProductos(defaultUsarEnProductos(newType));
                       setError(null);
                     }}
                     className={inputClassName}
@@ -796,6 +816,21 @@ export default function AddStockDialog({
               )}
             </>
           )}
+
+          <label className="flex items-start gap-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              checked={usarEnProductos}
+              onChange={(event) => setUsarEnProductos(event.target.checked)}
+              className="mt-0.5 size-4 rounded border-zinc-300 text-amber-700 focus:ring-amber-600/20"
+            />
+            <span>
+              Usar en cotizador
+              <span className="mt-0.5 block text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                Si está desactivado, no aparece al armar productos.
+              </span>
+            </span>
+          </label>
 
           {error && (
             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>

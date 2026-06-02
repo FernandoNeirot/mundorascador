@@ -1,8 +1,9 @@
 import { getFirestore, type DocumentData } from "firebase-admin/firestore";
 import { getFirebaseAdmin } from "@/lib/firebase/admin";
 import { CM_PER_METER } from "./meter-based";
+import { defaultUsarEnProductos } from "./constants";
 import { superficieCm2FromDimensions } from "./superficie";
-import type { CreateStockEntryInput, StockEntry } from "./types";
+import type { CreateStockEntryInput, MaterialType, StockEntry } from "./types";
 
 const COLLECTION = "taller-stock";
 
@@ -22,6 +23,7 @@ function buildEntry(
     quantity: input.quantity,
     cantidadUsada: input.cantidadUsada ?? 0,
     compradoPor: input.compradoPor,
+    usarEnProductos: input.usarEnProductos ?? defaultUsarEnProductos(input.type),
   };
 
   switch (input.type) {
@@ -143,6 +145,12 @@ function docToEntry(id: string, data: DocumentData): StockEntry | null {
   const normalized = { ...data };
 
   normalizeCanoDocument(normalized);
+
+  if (typeof normalized.usarEnProductos !== "boolean") {
+    normalized.usarEnProductos = defaultUsarEnProductos(
+      normalized.type as MaterialType,
+    );
+  }
 
   if (
     (normalized.type === "telas" || normalized.type === "guata") &&

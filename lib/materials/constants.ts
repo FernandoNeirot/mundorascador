@@ -9,6 +9,10 @@ export const MATERIAL_CONFIG: Record<MaterialType, { label: string }> = {
   herramientas: { label: "Producto genérico" },
 };
 
+/** Valor por defecto al cargar un material según su tipo. */
+export const defaultUsarEnProductos = (type: MaterialType): boolean =>
+  type !== "herramientas";
+
 export const WOOD_TYPE_CONFIG: Record<WoodType, { label: string }> = {
   fibro_facil: { label: "Fibro fácil" },
   pino: { label: "Pino" },

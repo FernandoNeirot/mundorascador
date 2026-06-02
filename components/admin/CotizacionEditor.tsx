@@ -26,12 +26,16 @@ type CotizacionEditorProps = {
   dirty: boolean;
   saving: boolean;
   deleting: boolean;
+  isDraft?: boolean;
+  viewOnlyNote?: string;
   error: string | null;
   onNombreChange: (nombre: string) => void;
   onDescripcionChange: (descripcion: string) => void;
   onMaterialesChange: (materiales: CommittedQuoteLine[]) => void;
   onSave: () => void;
   onDelete: () => void;
+  onClose?: () => void;
+  inModal?: boolean;
 };
 
 export default function CotizacionEditor({
@@ -42,12 +46,16 @@ export default function CotizacionEditor({
   dirty,
   saving,
   deleting,
+  isDraft = false,
+  viewOnlyNote,
   error,
   onNombreChange,
   onDescripcionChange,
   onMaterialesChange,
   onSave,
   onDelete,
+  onClose,
+  inModal = false,
 }: CotizacionEditorProps) {
   const telaProducts = useMemo(
     () => products.filter((p) => p.materialType === "telas"),
@@ -131,7 +139,13 @@ export default function CotizacionEditor({
   };
 
   return (
-    <section className="min-w-0 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-800 dark:bg-zinc-950">
+    <section
+      className={
+        inModal
+          ? "min-w-0"
+          : "min-w-0 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-800 dark:bg-zinc-950"
+      }
+    >
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-50">
@@ -139,30 +153,46 @@ export default function CotizacionEditor({
           </h2>
           {dirty && canWrite && (
             <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-              Cambios sin guardar
+              {isDraft ? "Sin guardar en Firebase" : "Cambios sin guardar"}
+            </p>
+          )}
+          {viewOnlyNote && (
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              {viewOnlyNote}
             </p>
           )}
         </div>
-        {canWrite && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          {onClose && (
             <button
               type="button"
-              onClick={onDelete}
-              disabled={deleting || saving}
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-red-300 px-4 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/30"
+              onClick={onClose}
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-zinc-300 px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
             >
-              {deleting ? "Eliminando..." : "Eliminar"}
+              Cerrar
             </button>
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={!dirty || saving || deleting}
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-amber-700 px-4 text-sm font-medium text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? "Guardando..." : "Guardar"}
-            </button>
-          </div>
-        )}
+          )}
+          {canWrite && (
+            <>
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={deleting || saving}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-red-300 px-4 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/30"
+              >
+                {deleting ? "Eliminando..." : isDraft ? "Descartar" : "Eliminar"}
+              </button>
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={(!dirty && !isDraft) || saving || deleting}
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-amber-700 px-4 text-sm font-medium text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? "Guardando..." : isDraft ? "Crear cotización" : "Guardar"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="mb-6 grid gap-4">

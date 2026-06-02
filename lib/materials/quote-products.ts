@@ -3,6 +3,10 @@ import { getStockCm2, isStockEntryWithCortes } from "./cortes";
 import { calculateTotalPrice, formatEntryDetails, getUnitPrice } from "./format";
 import type { MaterialType, StockEntry } from "./types";
 
+export function isUsableInProducts(entry: StockEntry): boolean {
+  return entry.usarEnProductos;
+}
+
 export type QuoteQuantityUnit = "metros" | "unidades" | "cm²" | "cm";
 
 export type QuoteProductOption = {
@@ -121,6 +125,8 @@ export function buildQuoteProductOptions(
   const groups = new Map<string, StockEntry[]>();
 
   for (const entry of entries) {
+    if (!isUsableInProducts(entry)) continue;
+
     const key = getQuoteGroupKey(entry);
     const current = groups.get(key) ?? [];
     current.push(entry);

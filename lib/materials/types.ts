@@ -21,6 +21,8 @@ type BaseStockEntry = {
   quantity: number;
   cantidadUsada: number;
   compradoPor: BuyerType;
+  /** Si aparece en el cotizador al armar productos. */
+  usarEnProductos: boolean;
 };
 
 export type StockCorte = {
@@ -95,6 +97,7 @@ type CreateStockBase = {
   quantity: number;
   cantidadUsada?: number;
   compradoPor: BuyerType;
+  usarEnProductos?: boolean;
 };
 
 export type CreateTelaInput = CreateStockBase & {

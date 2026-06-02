@@ -5,6 +5,7 @@ import {
   BUYER_CONFIG,
   BUYER_TYPES,
   EDITABLE_MATERIAL_TYPES,
+  defaultUsarEnProductos,
   isCanoType,
   isFabricLikeType,
   isMeterBasedType,
@@ -63,6 +64,7 @@ export default function EditStockDialog({
   const [color, setColor] = useState("");
   const [tipoMadera, setTipoMadera] = useState<WoodType>("pino");
   const [cantidadUsada, setCantidadUsada] = useState("");
+  const [usarEnProductos, setUsarEnProductos] = useState(true);
   const [cortesOpen, setCortesOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export default function EditStockDialog({
 
     setEditType(entry.type);
     setCompradoPor(entry.compradoPor);
+    setUsarEnProductos(entry.usarEnProductos);
     setPrice(String(entry.price));
     setError(null);
     setDescripcion("");
@@ -170,6 +173,7 @@ export default function EditStockDialog({
     const wasCano = isCanoType(editType);
     setEditType(newType);
     setError(null);
+    setUsarEnProductos(defaultUsarEnProductos(newType));
     if (isMeterBasedType(newType)) {
       setQuantity(formatQuantityFromLength(largoCm));
     } else if (isCanoType(newType)) {
@@ -217,6 +221,7 @@ export default function EditStockDialog({
       price: parsedPrice,
       quantity: parsedQuantity,
       compradoPor,
+      usarEnProductos,
       ...(parsedCantidadUsada !== undefined && {
         cantidadUsada: parsedCantidadUsada,
       }),
@@ -768,6 +773,21 @@ export default function EditStockDialog({
               />
             </label>
           </div>
+
+          <label className="flex items-start gap-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              checked={usarEnProductos}
+              onChange={(event) => setUsarEnProductos(event.target.checked)}
+              className="mt-0.5 size-4 rounded border-zinc-300 text-amber-700 focus:ring-amber-600/20"
+            />
+            <span>
+              Usar en cotizador
+              <span className="mt-0.5 block text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                Si está desactivado, no aparece al armar productos.
+              </span>
+            </span>
+          </label>
 
           {error && (
             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>

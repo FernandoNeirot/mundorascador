@@ -90,6 +90,7 @@ export async function updateCotizacion(
   const updated: Cotizacion = {
     ...existing,
     ...input,
+    createdBy: existing.createdBy,
     updatedAt: new Date().toISOString(),
   };
 
