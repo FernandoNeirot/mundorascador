@@ -3,6 +3,7 @@ import {
   normalizeConfigPisosOrder,
 } from "./cat-scratcher";
 import type {
+  CasitaEnPisoConfig,
   ColumnaPosicionConfig,
   PisoNivelConfig,
   PisoPosicionConfig,
@@ -45,12 +46,14 @@ function isValidSoporteTramo(value: unknown): value is SoporteTramoConfig {
   const s = value as Record<string, unknown>;
   if (
     parsePositiveNumber(s.columnaCantidad) === null ||
-    parsePositiveNumber(s.columnaAltoCm) === null ||
-    parsePositiveNumber(s.columnaAnchoCm) === null ||
-    parsePositiveNumber(s.columnaProfundoCm) === null
+    parsePositiveNumber(s.columnaAltoCm) === null
   ) {
     return false;
   }
+  const diametro =
+    parsePositiveNumber(s.columnaDiametroCm) ??
+    parsePositiveNumber(s.columnaAnchoCm);
+  if (diametro === null) return false;
   if (typeof s.casitaActiva !== "boolean") return false;
   if (parsePositiveNumber(s.casitaColumnaIndice) === null) return false;
   if (
@@ -61,6 +64,25 @@ function isValidSoporteTramo(value: unknown): value is SoporteTramoConfig {
   }
   if (!Array.isArray(s.columnaPosiciones)) return false;
   return s.columnaPosiciones.every(isValidColumnaPosicion);
+}
+
+function isValidCasitaEnPiso(value: unknown): value is CasitaEnPisoConfig {
+  if (!value || typeof value !== "object") return false;
+  const c = value as Record<string, unknown>;
+  if (
+    parsePositiveNumber(c.anchoCm) === null ||
+    parsePositiveNumber(c.largoCm) === null ||
+    parsePositiveNumber(c.altoCm) === null
+  ) {
+    return false;
+  }
+  if (typeof c.columnaEnTecho !== "boolean") return false;
+  if (parsePositiveNumber(c.columnaAltoCm) === null) return false;
+  const columnaDiametro =
+    parsePositiveNumber(c.columnaDiametroCm) ??
+    parsePositiveNumber(c.columnaAnchoCm);
+  if (columnaDiametro === null) return false;
+  return isValidColumnaPosicion(c.posicionCm);
 }
 
 function isValidPisoNivel(value: unknown): value is PisoNivelConfig {
@@ -78,6 +100,9 @@ function isValidPisoNivel(value: unknown): value is PisoNivelConfig {
     return false;
   }
   if (p.soporte !== undefined && !isValidSoporteTramo(p.soporte)) {
+    return false;
+  }
+  if (p.casita !== undefined && !isValidCasitaEnPiso(p.casita)) {
     return false;
   }
   return true;

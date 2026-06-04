@@ -28,6 +28,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
-  const ensamble = await addEnsamble(validation.data, session.username);
-  return NextResponse.json(ensamble, { status: 201 });
+  try {
+    const ensamble = await addEnsamble(validation.data, session.username);
+    return NextResponse.json(ensamble, { status: 201 });
+  } catch (error) {
+    console.error("addEnsamble", error);
+    return NextResponse.json(
+      { error: "No se pudo guardar el ensamble en Firebase." },
+      { status: 500 },
+    );
+  }
 }

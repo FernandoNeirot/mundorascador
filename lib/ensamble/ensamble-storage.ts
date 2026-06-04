@@ -1,6 +1,9 @@
 import { getFirestore, type DocumentData } from "firebase-admin/firestore";
 import { getFirebaseAdmin } from "@/lib/firebase/admin";
-import { EMPTY_RASCADOR_CONFIG } from "./cat-scratcher";
+import {
+  EMPTY_RASCADOR_CONFIG,
+  normalizeConfigPisosOrder,
+} from "./cat-scratcher";
 import { isValidRascadorConfig } from "./validation";
 import type {
   CreateEnsambleInput,
@@ -9,7 +12,7 @@ import type {
   UpdateEnsambleInput,
 } from "./types";
 
-const COLLECTION = "taller-ensamble";
+const COLLECTION = "taller-ensambles";
 
 function getCollection() {
   return getFirestore(getFirebaseAdmin()).collection(COLLECTION);
@@ -62,7 +65,9 @@ export async function addEnsamble(
 ): Promise<Ensamble> {
   const now = new Date().toISOString();
   const tipo: EnsambleTipo = input.tipo ?? "rascador-gatos";
-  const config = input.config ?? EMPTY_RASCADOR_CONFIG;
+  const config = normalizeConfigPisosOrder(
+    input.config ?? EMPTY_RASCADOR_CONFIG,
+  );
 
   const ensamble: Ensamble = {
     id: crypto.randomUUID(),
@@ -86,7 +91,7 @@ export async function updateEnsamble(
 
   const updated: Ensamble = {
     ...existing,
-    config: input.config,
+    config: normalizeConfigPisosOrder(input.config),
     updatedAt: new Date().toISOString(),
   };
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { startPageNavigation } from "@/lib/navigation-loading";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
@@ -34,6 +35,7 @@ export default function LoginForm() {
         return;
       }
 
+      startPageNavigation();
       router.replace(nextPath);
       router.refresh();
     } catch {

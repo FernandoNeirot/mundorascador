@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { startPageNavigation } from "@/lib/navigation-loading";
 import { usePathname, useRouter } from "next/navigation";
 import { getDisplayUsername } from "@/lib/auth/display";
 import type { SessionUser } from "@/lib/auth/types";
@@ -28,6 +29,7 @@ export default function AdminHeader({ user }: { user: SessionUser }) {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
+    startPageNavigation();
     router.replace("/login");
     router.refresh();
   };

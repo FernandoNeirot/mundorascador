@@ -4,25 +4,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
 import { getDisplayUsername } from "@/lib/auth/display";
+import { startPageNavigation } from "@/lib/navigation-loading";
 import EnsambleRascadorPreview from "@/components/admin/EnsambleRascadorPreview";
 import {
-  CASITA_HEIGHT_RATIO,
   computeRascadorEnsamble,
   configToDraftPisos,
   centerPisoPosicionDraft,
+  createDefaultCasitaEnPisoDraft,
   createDefaultPisoPosicionDraft,
   createDefaultSoporteDraft,
   createEmptyPisoDraft,
   createPisoId,
-  DEFAULT_RASCADOR_CONFIG,
   draftPisosToConfig,
   getPisoElevadoNumero,
   normalizeDraftPisos,
-  pisoSoportaNivelArriba,
   MADERA_ESPESOR_MM,
   parsePositiveCm,
   redistributeSoporteDraftPositions,
+  syncCasitaDraftPosition,
   syncSoporteDraftPositions,
+  type CasitaEnPisoDraft,
   type ColumnaPosicionDraft,
   type PisoPosicionDraft,
   type PisoNivelDraft,
@@ -40,6 +41,9 @@ const compactLabelClassName =
   "flex min-w-0 flex-col gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400";
 
 const compactInputClassName = `${inputClassName} w-full min-w-0`;
+
+/** Ancho y largo (u otro par de medidas) en una sola fila cuando hay espacio. */
+const medidasEnLineaClassName = "grid min-w-0 grid-cols-2 gap-3";
 
 type CollapsiblePanelProps = {
   title: string;
@@ -133,13 +137,6 @@ function SoporteTramoFields({
   disabled?: boolean;
   onChange: (next: SoporteTramoDraft) => void;
 }) {
-  const columnaMax = Math.max(1, Math.floor(Number(soporte.columnaCantidad) || 1));
-  const colAlto = Number(soporte.columnaAltoCm);
-  const casitaAlto =
-    Number.isFinite(colAlto) && colAlto > 0
-      ? colAlto * CASITA_HEIGHT_RATIO
-      : 0;
-
   const updatePosicion = (
     index: number,
     patch: Partial<ColumnaPosicionDraft>,
@@ -162,145 +159,59 @@ function SoporteTramoFields({
         onToggle={() => setSoporteOpen((v) => !v)}
         className="border-zinc-200 dark:border-zinc-700"
       >
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className={labelClassName}>
-          Cant. columnas
-          <input
-            type="number"
-            min="1"
-            max="8"
-            value={soporte.columnaCantidad}
-            onChange={(e) =>
-              onChange(
-                updateSoporteCantidad(
-                  soporte,
-                  Math.max(1, Math.floor(Number(e.target.value) || 1)),
-                  pisoInferiorAnchoCm,
-                  pisoInferiorLargoCm,
-                ),
-              )
-            }
-            disabled={disabled}
-            className={inputClassName}
-          />
-        </label>
-        <label className={labelClassName}>
-          Alto del tramo (cm)
-          <input
-            type="number"
-            min="1"
-            step="any"
-            value={soporte.columnaAltoCm}
-            onChange={(e) =>
-              onChange({ ...soporte, columnaAltoCm: e.target.value })
-            }
-            disabled={disabled}
-            className={inputClassName}
-          />
-        </label>
-        <label className={labelClassName}>
-          Sección ancho (cm)
-          <input
-            type="number"
-            min="1"
-            step="any"
-            value={soporte.columnaAnchoCm}
-            onChange={(e) =>
-              onChange({ ...soporte, columnaAnchoCm: e.target.value })
-            }
-            disabled={disabled}
-            className={inputClassName}
-          />
-        </label>
-        <label className={labelClassName}>
-          Sección profundo (cm)
-          <input
-            type="number"
-            min="1"
-            step="any"
-            value={soporte.columnaProfundoCm}
-            onChange={(e) =>
-              onChange({ ...soporte, columnaProfundoCm: e.target.value })
-            }
-            disabled={disabled}
-            className={inputClassName}
-          />
-        </label>
-      </div>
-
-      <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-        <input
-          type="checkbox"
-          checked={soporte.casitaActiva}
-          onChange={(e) =>
-            onChange({ ...soporte, casitaActiva: e.target.checked })
-          }
-          disabled={disabled}
-          className="rounded border-zinc-300 text-violet-700 focus:ring-violet-600"
-        />
-        Casita en una columna ({CASITA_HEIGHT_RATIO * 100}% del tramo)
-      </label>
-
-      {soporte.casitaActiva && (
-        <div className="grid gap-3 sm:grid-cols-2">
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className={medidasEnLineaClassName}>
           <label className={labelClassName}>
-            Columna Nº
-            <select
-              value={soporte.casitaColumnaIndice}
-              onChange={(e) =>
-                onChange({ ...soporte, casitaColumnaIndice: e.target.value })
-              }
-              disabled={disabled}
-              className={inputClassName}
-            >
-              {Array.from({ length: columnaMax }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={String(n)}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={labelClassName}>
-            Alto casita (auto)
-            <input
-              type="text"
-              readOnly
-              value={
-                casitaAlto > 0 ? `${casitaAlto.toFixed(1)} cm` : "—"
-              }
-              className="cursor-not-allowed rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/60"
-            />
-          </label>
-          <label className={labelClassName}>
-            Ancho casita (cm)
+            Cant. columnas
             <input
               type="number"
               min="1"
-              step="any"
-              value={soporte.casitaAnchoCm}
+              max="8"
+              value={soporte.columnaCantidad}
               onChange={(e) =>
-                onChange({ ...soporte, casitaAnchoCm: e.target.value })
+                onChange(
+                  updateSoporteCantidad(
+                    soporte,
+                    Math.max(1, Math.floor(Number(e.target.value) || 1)),
+                    pisoInferiorAnchoCm,
+                    pisoInferiorLargoCm,
+                  ),
+                )
               }
               disabled={disabled}
               className={inputClassName}
             />
           </label>
           <label className={labelClassName}>
-            Profundo casita (cm)
+            Alto del tramo (cm)
             <input
               type="number"
               min="1"
               step="any"
-              value={soporte.casitaProfundoCm}
+              value={soporte.columnaAltoCm}
               onChange={(e) =>
-                onChange({ ...soporte, casitaProfundoCm: e.target.value })
+                onChange({ ...soporte, columnaAltoCm: e.target.value })
               }
               disabled={disabled}
               className={inputClassName}
             />
           </label>
         </div>
-      )}
+        <label className={labelClassName}>
+          Diámetro (cm)
+          <input
+            type="number"
+            min="1"
+            step="any"
+            value={soporte.columnaDiametroCm}
+            onChange={(e) =>
+              onChange({ ...soporte, columnaDiametroCm: e.target.value })
+            }
+            disabled={disabled}
+            className={inputClassName}
+          />
+        </label>
+      </div>
       </CollapsiblePanel>
 
       <CollapsiblePanel
@@ -379,6 +290,207 @@ function SoporteTramoFields({
   );
 }
 
+function CasitaEnPisoFields({
+  casita,
+  pisoAnchoCm,
+  pisoLargoCm,
+  disabled = false,
+  onChange,
+}: {
+  casita: CasitaEnPisoDraft;
+  pisoAnchoCm: number;
+  pisoLargoCm: number;
+  disabled?: boolean;
+  onChange: (next: CasitaEnPisoDraft) => void;
+}) {
+  const [medidasOpen, setMedidasOpen] = useState(true);
+  const [posicionOpen, setPosicionOpen] = useState(true);
+
+  const syncPosicionTrasMedidas = (draft: CasitaEnPisoDraft) => {
+    onChange(
+      syncCasitaDraftPosition(
+        draft,
+        pisoAnchoCm,
+        pisoLargoCm,
+        parsePositiveCm(draft.anchoCm, 28),
+        parsePositiveCm(draft.largoCm, 28),
+      ),
+    );
+  };
+
+  return (
+    <div className="mt-3 flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+      <CollapsiblePanel
+        title="Casita (frente, fondo, laterales, techo)"
+        subtitle={`${casita.anchoCm}×${casita.largoCm}×${casita.altoCm} cm`}
+        expanded={medidasOpen}
+        onToggle={() => setMedidasOpen((v) => !v)}
+        className="border-zinc-200 dark:border-zinc-700"
+      >
+        <div className={medidasEnLineaClassName}>
+          <label className={labelClassName}>
+            Ancho (cm)
+            <input
+              type="number"
+              min="1"
+              step="any"
+              value={casita.anchoCm}
+              onChange={(e) =>
+                onChange({ ...casita, anchoCm: e.target.value })
+              }
+              onBlur={(e) =>
+                syncPosicionTrasMedidas({
+                  ...casita,
+                  anchoCm: e.target.value,
+                })
+              }
+              disabled={disabled}
+              className={inputClassName}
+            />
+          </label>
+          <label className={labelClassName}>
+            Largo (cm)
+            <input
+              type="number"
+              min="1"
+              step="any"
+              value={casita.largoCm}
+              onChange={(e) =>
+                onChange({ ...casita, largoCm: e.target.value })
+              }
+              onBlur={(e) =>
+                syncPosicionTrasMedidas({
+                  ...casita,
+                  largoCm: e.target.value,
+                })
+              }
+              disabled={disabled}
+              className={inputClassName}
+            />
+          </label>
+        </div>
+        <label className={`${labelClassName} mt-3`}>
+          Alto cuerpo (cm)
+          <input
+            type="number"
+            min="1"
+            step="any"
+            value={casita.altoCm}
+            onChange={(e) => onChange({ ...casita, altoCm: e.target.value })}
+            disabled={disabled}
+            className={inputClassName}
+          />
+        </label>
+        <label className="mt-3 flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+          <input
+            type="checkbox"
+            checked={casita.columnaEnTecho}
+            onChange={(e) =>
+              onChange({ ...casita, columnaEnTecho: e.target.checked })
+            }
+            disabled={disabled}
+            className="rounded border-zinc-300 text-violet-700 focus:ring-violet-600"
+          />
+          Columna sobre el techo
+        </label>
+        {casita.columnaEnTecho && (
+          <div className={`${medidasEnLineaClassName} mt-3`}>
+            <label className={labelClassName}>
+              Alto columna (cm)
+              <input
+                type="number"
+                min="1"
+                step="any"
+                value={casita.columnaAltoCm}
+                onChange={(e) =>
+                  onChange({ ...casita, columnaAltoCm: e.target.value })
+                }
+                disabled={disabled}
+                className={inputClassName}
+              />
+            </label>
+            <label className={labelClassName}>
+              Diámetro (cm)
+              <input
+                type="number"
+                min="1"
+                step="any"
+                value={casita.columnaDiametroCm}
+                onChange={(e) =>
+                  onChange({ ...casita, columnaDiametroCm: e.target.value })
+                }
+                disabled={disabled}
+                className={inputClassName}
+              />
+            </label>
+          </div>
+        )}
+      </CollapsiblePanel>
+
+      <CollapsiblePanel
+        title="Posición de la casita en el plano"
+        subtitle={`${pisoAnchoCm}×${pisoLargoCm} cm · X/Y centro`}
+        expanded={posicionOpen}
+        onToggle={() => setPosicionOpen((v) => !v)}
+        className="border-zinc-200 dark:border-zinc-700"
+        headerAside={
+          !disabled ? (
+            <button
+              type="button"
+              onClick={() =>
+                onChange(createDefaultCasitaEnPisoDraft(pisoAnchoCm, pisoLargoCm))
+              }
+              className="text-xs font-medium text-amber-700 dark:text-amber-400"
+            >
+              Centrar
+            </button>
+          ) : undefined
+        }
+      >
+        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+          X = desde la izquierda · Y = desde el frente (igual que las columnas)
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <label className={compactLabelClassName}>
+            X (cm)
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={casita.posicionCm.xCm}
+              onChange={(e) =>
+                onChange({
+                  ...casita,
+                  posicionCm: { ...casita.posicionCm, xCm: e.target.value },
+                })
+              }
+              disabled={disabled}
+              className={compactInputClassName}
+            />
+          </label>
+          <label className={compactLabelClassName}>
+            Y (cm)
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={casita.posicionCm.yCm}
+              onChange={(e) =>
+                onChange({
+                  ...casita,
+                  posicionCm: { ...casita.posicionCm, yCm: e.target.value },
+                })
+              }
+              disabled={disabled}
+              className={compactInputClassName}
+            />
+          </label>
+        </div>
+      </CollapsiblePanel>
+    </div>
+  );
+}
+
 function draftHasBase(pisos: PisoNivelDraft[]): boolean {
   return pisos.some((p) => p.esBase);
 }
@@ -388,14 +500,22 @@ function buildPisoSubtitle(
   soporte: SoporteTramoDraft,
 ): string {
   const dims = `${piso.etiqueta} · ${piso.anchoCm}×${piso.largoCm} cm`;
-  if (piso.esBase) return dims;
-  const cols = piso.conColumnas
-    ? `${soporte.columnaCantidad} col. · ${soporte.columnaAltoCm} cm`
-    : "sin columnas";
+  const parts: string[] = [];
+  if (piso.conColumnas) {
+    parts.push(`${soporte.columnaCantidad} col.`);
+  }
+  if (piso.conCasita && piso.casita) {
+    parts.push(
+      `casita ${piso.casita.anchoCm}×${piso.casita.largoCm}×${piso.casita.altoCm}`,
+    );
+  }
+  if (parts.length === 0) return dims;
   const pos = piso.posicionCm
     ? ` · X ${piso.posicionCm.xCm} Y ${piso.posicionCm.yCm}`
-    : "";
-  return `${dims} · ${cols}${pos}`;
+    : piso.conCasita && piso.casita
+      ? ` · casita X ${piso.casita.posicionCm.xCm} Y ${piso.casita.posicionCm.yCm}`
+      : "";
+  return `${dims} · ${parts.join(" · ")}${pos}`;
 }
 
 function PisoPosicionFields({
@@ -577,16 +697,14 @@ export default function EnsambleRascador({
     const largo = pisosDraft[0]?.largoCm ?? "40";
     const hostAncho = parsePositiveCm(ancho, 60);
     const hostLargo = parsePositiveCm(largo, 40);
-    const tieneArriba = pisosDraft.length > 0;
     const base: PisoNivelDraft = {
       ...createEmptyPisoDraft(true),
       anchoCm: ancho,
       largoCm: largo,
-      conColumnas: tieneArriba && conColumnas,
-      soporte:
-        tieneArriba && conColumnas
-          ? createDefaultSoporteDraft(hostAncho, hostLargo)
-          : null,
+      conColumnas,
+      soporte: conColumnas
+        ? createDefaultSoporteDraft(hostAncho, hostLargo)
+        : null,
     };
     setPisosDraftNormalized((current) => [...current, base]);
     setPisoExpanded((current) => ({ ...current, [base.id]: true }));
@@ -607,15 +725,7 @@ export default function EnsambleRascador({
     );
   };
 
-  const resetExample = () => {
-    if (!canEdit) return;
-    const draft = configToDraftPisos(DEFAULT_RASCADOR_CONFIG);
-    setNombre(DEFAULT_RASCADOR_CONFIG.nombre);
-    setPisosDraft(normalizeDraftPisos(draft));
-    setPisoExpanded(initialPisoExpanded(draft));
-    setPreviewExpanded(true);
-    setPiezasExpanded(true);
-  };
+  const hasContentToSave = pisosDraft.length > 0;
 
   const buildConfig = (): RascadorEnsambleConfig =>
     draftPisosToConfig(nombre, pisosDraft);
@@ -626,7 +736,10 @@ export default function EnsambleRascador({
     setSaving(true);
     setError(null);
 
-    const payload = { config: buildConfig() };
+    const payload = {
+      tipo: "rascador-gatos" as const,
+      config: buildConfig(),
+    };
 
     try {
       if (mode === "create") {
@@ -637,9 +750,10 @@ export default function EnsambleRascador({
         });
         const data = await response.json();
         if (!response.ok) {
-          setError(data.error ?? "No se pudo crear el ensamble.");
+          setError(data.error ?? "No se pudo guardar el ensamble.");
           return;
         }
+        startPageNavigation();
         router.push(`/admin/ensamble/${data.id}`);
         router.refresh();
         return;
@@ -683,6 +797,7 @@ export default function EnsambleRascador({
         setError(data.error ?? "No se pudo eliminar el ensamble.");
         return;
       }
+      startPageNavigation();
       router.push("/admin/ensamble");
       router.refresh();
     } finally {
@@ -732,14 +847,15 @@ export default function EnsambleRascador({
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving || deleting}
+              disabled={!hasContentToSave || saving || deleting}
+              title={
+                hasContentToSave
+                  ? undefined
+                  : "Agregá la base o al menos un piso para guardar"
+              }
               className="inline-flex h-10 items-center justify-center rounded-lg bg-amber-700 px-4 text-sm font-medium text-white transition hover:bg-amber-800 disabled:opacity-60"
             >
-              {saving
-                ? "Guardando…"
-                : mode === "create"
-                  ? "Crear ensamble"
-                  : "Guardar cambios"}
+              {saving ? "Guardando…" : "Guardar"}
             </button>
             {mode === "edit" && (
               <button
@@ -823,8 +939,6 @@ export default function EnsambleRascador({
           <ul className="flex flex-col gap-4">
             {pisosDraft.map((piso, index) => {
               const esBase = piso.esBase;
-              const soportaArriba = pisoSoportaNivelArriba(index, pisosDraft);
-              const elevadosCount = pisosDraft.filter((p) => !p.esBase).length;
               const tienePisoAbajo = index < pisosDraft.length - 1;
               const pisoInferior = tienePisoAbajo
                 ? pisosDraft[index + 1]
@@ -835,14 +949,17 @@ export default function EnsambleRascador({
               const infLargo = pisoInferior
                 ? parsePositiveCm(pisoInferior.largoCm, 40)
                 : 40;
+              const pisoAncho = parsePositiveCm(piso.anchoCm, 50);
+              const pisoLargo = parsePositiveCm(piso.largoCm, 40);
+              const casitaDraft =
+                piso.casita ??
+                createDefaultCasitaEnPisoDraft(pisoAncho, pisoLargo);
               const soporte =
                 piso.soporte ??
-                createDefaultSoporteDraft(infAncho, infLargo);
+                createDefaultSoporteDraft(pisoAncho, pisoLargo);
               const posicion =
                 piso.posicionCm ??
                 createDefaultPisoPosicionDraft(infAncho, infLargo);
-              const pisoAncho = parsePositiveCm(piso.anchoCm, 50);
-              const pisoLargo = parsePositiveCm(piso.largoCm, 40);
 
               const title = esBase
                 ? "Base (suelo)"
@@ -873,7 +990,7 @@ export default function EnsambleRascador({
                       ) : undefined
                     }
                   >
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex min-w-0 flex-col gap-3">
                     <label className={labelClassName}>
                       Etiqueta
                       <input
@@ -886,81 +1003,105 @@ export default function EnsambleRascador({
                         className={inputClassName}
                       />
                     </label>
-                    <label className={labelClassName}>
-                      Ancho (cm)
-                      <input
-                        type="number"
-                        min="1"
-                        step="any"
-                        value={piso.anchoCm}
-                        onChange={(e) =>
-                          updatePiso(piso.id, { anchoCm: e.target.value })
-                        }
-                        disabled={fieldDisabled}
-                        className={inputClassName}
-                      />
-                    </label>
-                    <label className={labelClassName}>
-                      Largo (cm)
-                      <input
-                        type="number"
-                        min="1"
-                        step="any"
-                        value={piso.largoCm}
-                        onChange={(e) =>
-                          updatePiso(piso.id, { largoCm: e.target.value })
-                        }
-                        disabled={fieldDisabled}
-                        className={inputClassName}
-                      />
-                    </label>
+                    <div className={medidasEnLineaClassName}>
+                      <label className={labelClassName}>
+                        Ancho (cm)
+                        <input
+                          type="number"
+                          min="1"
+                          step="any"
+                          value={piso.anchoCm}
+                          onChange={(e) =>
+                            updatePiso(piso.id, { anchoCm: e.target.value })
+                          }
+                          disabled={fieldDisabled}
+                          className={inputClassName}
+                        />
+                      </label>
+                      <label className={labelClassName}>
+                        Largo (cm)
+                        <input
+                          type="number"
+                          min="1"
+                          step="any"
+                          value={piso.largoCm}
+                          onChange={(e) =>
+                            updatePiso(piso.id, { largoCm: e.target.value })
+                          }
+                          disabled={fieldDisabled}
+                          className={inputClassName}
+                        />
+                      </label>
+                    </div>
                   </div>
 
-                  {esBase && elevadosCount === 0 && (
-                    <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                      Agregá al menos un piso con <strong>+ Piso</strong> para
-                      poder poner columnas en la base.
-                    </p>
+                  <label className="mt-3 flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={piso.conColumnas}
+                      disabled={fieldDisabled}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const hostAncho = parsePositiveCm(piso.anchoCm, 60);
+                        const hostLargo = parsePositiveCm(piso.largoCm, 40);
+                        updatePiso(piso.id, {
+                          conColumnas: checked,
+                          soporte: checked
+                            ? createDefaultSoporteDraft(hostAncho, hostLargo)
+                            : null,
+                        });
+                      }}
+                      className="rounded border-zinc-300 text-amber-700 focus:ring-amber-600"
+                    />
+                    Columnas sobre esta tabla
+                  </label>
+
+                  {piso.conColumnas && (
+                    <SoporteTramoFields
+                      soporte={soporte}
+                      pisoInferiorAnchoCm={pisoAncho}
+                      pisoInferiorLargoCm={pisoLargo}
+                      disabled={fieldDisabled}
+                      onChange={(next) =>
+                        updatePiso(piso.id, { soporte: next })
+                      }
+                    />
                   )}
 
-                  {soportaArriba && (
-                    <>
-                      <label className="mt-3 flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                        <input
-                          type="checkbox"
-                          checked={piso.conColumnas}
-                          disabled={fieldDisabled}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            const hostAncho = parsePositiveCm(piso.anchoCm, 60);
-                            const hostLargo = parsePositiveCm(piso.largoCm, 40);
-                            updatePiso(piso.id, {
-                              conColumnas: checked,
-                              soporte: checked
-                                ? createDefaultSoporteDraft(
-                                    hostAncho,
-                                    hostLargo,
-                                  )
-                                : null,
-                            });
-                          }}
-                          className="rounded border-zinc-300 text-amber-700 focus:ring-amber-600"
-                        />
-                        Columnas sobre este piso (hacia arriba)
-                      </label>
+                  <label className="mt-3 flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={piso.conCasita}
+                      disabled={fieldDisabled}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const hostAncho = parsePositiveCm(piso.anchoCm, 60);
+                        const hostLargo = parsePositiveCm(piso.largoCm, 40);
+                        updatePiso(piso.id, {
+                          conCasita: checked,
+                          casita: checked
+                            ? createDefaultCasitaEnPisoDraft(
+                                hostAncho,
+                                hostLargo,
+                              )
+                            : null,
+                        });
+                      }}
+                      className="rounded border-zinc-300 text-violet-700 focus:ring-violet-600"
+                    />
+                    Casita sobre esta tabla
+                  </label>
 
-                      {piso.conColumnas && (
-                        <SoporteTramoFields
-                          soporte={soporte}
-                          pisoInferiorAnchoCm={pisoAncho}
-                          pisoInferiorLargoCm={pisoLargo}
-                          disabled={fieldDisabled}
-                          onChange={(next) =>
-                            updatePiso(piso.id, { soporte: next })
-                          }
-                        />
-                      )}
-                    </>
+                  {piso.conCasita && (
+                    <CasitaEnPisoFields
+                      casita={casitaDraft}
+                      pisoAnchoCm={pisoAncho}
+                      pisoLargoCm={pisoLargo}
+                      disabled={fieldDisabled}
+                      onChange={(next) =>
+                        updatePiso(piso.id, { casita: next })
+                      }
+                    />
                   )}
 
                   {tienePisoAbajo && pisoInferior && (
@@ -981,22 +1122,16 @@ export default function EnsambleRascador({
               );
             })}
           </ul>
-
-          {canEdit && (
-            <button
-              type="button"
-              onClick={resetExample}
-              className="text-left text-sm font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
-            >
-              Restaurar ejemplo (4 pisos)
-            </button>
-          )}
         </section>
 
         <div className="flex min-w-0 flex-col gap-6">
           <CollapsiblePanel
-            title={`Vista previa · ${computed.config.nombre}`}
-            subtitle={`${computed.niveles.length} pisos · ${computed.alturaTotalCm.toFixed(0)} cm alto`}
+            title={`Vista previa · ${computed.config.nombre || "Sin nombre"}`}
+            subtitle={
+              computed.niveles.length === 0
+                ? "Sin pisos configurados"
+                : `${computed.niveles.length} pisos · ${computed.alturaTotalCm.toFixed(0)} cm alto`
+            }
             expanded={previewExpanded}
             onToggle={() => setPreviewExpanded((v) => !v)}
           >
@@ -1009,6 +1144,12 @@ export default function EnsambleRascador({
             expanded={piezasExpanded}
             onToggle={() => setPiezasExpanded((v) => !v)}
           >
+            {computed.piezas.length === 0 ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                Todavía no hay piezas. Configurá al menos un piso para generar el
+                listado.
+              </p>
+            ) : (
             <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto">
               {computed.piezas.map((pieza) => (
                 <li
@@ -1036,6 +1177,8 @@ export default function EnsambleRascador({
                 </li>
               ))}
             </ul>
+            )}
+            {computed.piezas.length > 0 && (
             <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
               Podés pasar estas medidas al{" "}
               <Link
@@ -1047,6 +1190,7 @@ export default function EnsambleRascador({
               . La vista imita la estructura de tus rascadores (pisos + columnas +
               casita opcional).
             </p>
+            )}
           </CollapsiblePanel>
         </div>
       </div>

@@ -63,15 +63,23 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  const ensamble = await updateEnsamble(id, validation.data);
-  if (!ensamble) {
+  try {
+    const ensamble = await updateEnsamble(id, validation.data);
+    if (!ensamble) {
+      return NextResponse.json(
+        { error: "Ensamble no encontrado." },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json(ensamble);
+  } catch (error) {
+    console.error("updateEnsamble", error);
     return NextResponse.json(
-      { error: "Ensamble no encontrado." },
-      { status: 404 },
+      { error: "No se pudo guardar el ensamble en Firebase." },
+      { status: 500 },
     );
   }
-
-  return NextResponse.json(ensamble);
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {

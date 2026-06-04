@@ -1,5 +1,6 @@
 import EnsambleRascador from "@/components/admin/EnsambleRascador";
-import { canEditEnsamble, canWriteEnsamble } from "@/lib/auth/permissions";
+import { canWriteEnsamble } from "@/lib/auth/permissions";
+import { canEditEnsamble } from "@/lib/ensamble/permissions";
 import { getSessionFromCookies } from "@/lib/auth/session";
 import { normalizeConfigPisosOrder } from "@/lib/ensamble/cat-scratcher";
 import { getEnsambleById } from "@/lib/ensamble/ensamble-storage";

@@ -1,7 +1,12 @@
 import { jwtVerify } from "jose";
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth/constants";
-import { canReadStock, canWriteCotizador, canWriteStock } from "@/lib/auth/permissions";
+import {
+  canReadStock,
+  canWriteCotizador,
+  canWriteEnsamble,
+  canWriteStock,
+} from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/auth/types";
 
 function getAuthSecret(): Uint8Array {
@@ -90,9 +95,32 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  if (pathname.startsWith("/api/ensamble")) {
+    if (!session || !canReadStock(session.role)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const isWriteMethod =
+      request.method === "POST" ||
+      request.method === "PATCH" ||
+      request.method === "PUT" ||
+      request.method === "DELETE";
+
+    if (isWriteMethod && !canWriteEnsamble(session)) {
+      return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/", "/admin/:path*", "/login", "/api/materials/:path*", "/api/cotizador/:path*"],
+  matcher: [
+    "/",
+    "/admin/:path*",
+    "/login",
+    "/api/materials/:path*",
+    "/api/cotizador/:path*",
+    "/api/ensamble/:path*",
+  ],
 };

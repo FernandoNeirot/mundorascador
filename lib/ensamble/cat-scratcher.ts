@@ -7,6 +7,30 @@ export const MADERA_ESPESOR_CM = MADERA_ESPESOR_MM / 10;
 
 const MADERA_NOTA = `Madera ${MADERA_ESPESOR_MM} mm`;
 
+const COLUMNA_REDONDA_NOTA = "Columna redonda";
+
+export function columnaDiametroNota(diametroCm: number): string {
+  return `${MADERA_NOTA} · ${COLUMNA_REDONDA_NOTA} Ø ${diametroCm} cm`;
+}
+
+type LegacyColumnaDiametroSource = {
+  columnaDiametroCm?: number;
+  columnaAnchoCm?: number;
+  columnaProfundoCm?: number;
+};
+
+/** Acepta `columnaDiametroCm` o medidas viejas (ancho/profundo). */
+export function readColumnaDiametroCm(
+  source: LegacyColumnaDiametroSource,
+  fallback = 8,
+): number {
+  const d = source.columnaDiametroCm;
+  if (d != null && Number.isFinite(d) && d > 0) return d;
+  const ancho = source.columnaAnchoCm;
+  if (ancho != null && Number.isFinite(ancho) && ancho > 0) return ancho;
+  return fallback;
+}
+
 /** Centro de columna en el piso inferior (cm desde borde izquierdo y frontal). */
 export type ColumnaPosicionConfig = {
   xCm: number;
@@ -19,18 +43,28 @@ export type PisoPosicionConfig = {
   yCm: number;
 };
 
-/** Columnas que sostienen un piso superior desde el piso inferior. */
+/** Columnas verticales sobre la tabla del piso (no requiere piso superior). */
 export type SoporteTramoConfig = {
   columnaCantidad: number;
   columnaAltoCm: number;
-  columnaAnchoCm: number;
-  columnaProfundoCm: number;
+  columnaDiametroCm: number;
   columnaPosiciones: ColumnaPosicionConfig[];
+  /** Legacy: casita embebida en columna; usar `casita` en el piso. */
   casitaActiva: boolean;
-  /** Índice 1-based de la columna con casita. */
   casitaColumnaIndice: number;
   casitaAnchoCm: number;
   casitaProfundoCm: number;
+};
+
+/** Casita apoyada en la tabla del piso (techo, laterales, frente, fondo). */
+export type CasitaEnPisoConfig = {
+  posicionCm: ColumnaPosicionConfig;
+  anchoCm: number;
+  largoCm: number;
+  altoCm: number;
+  columnaEnTecho: boolean;
+  columnaAltoCm: number;
+  columnaDiametroCm: number;
 };
 
 export type PisoNivelConfig = {
@@ -40,8 +74,10 @@ export type PisoNivelConfig = {
   largoCm: number;
   /** Centro sobre el piso inferior (pisos elevados). */
   posicionCm?: PisoPosicionConfig;
-  /** Columnas sobre este piso (hacia el nivel de arriba). La base puede tenerlas. */
+  /** Columnas sobre esta tabla. */
   soporte?: SoporteTramoConfig;
+  /** Casita sobre esta tabla (independiente de columnas). */
+  casita?: CasitaEnPisoConfig;
 };
 
 export type RascadorEnsambleConfig = {
@@ -51,7 +87,16 @@ export type RascadorEnsambleConfig = {
 
 export type RascadorPieza = {
   id: string;
-  rol: "piso" | "columna" | "columna-base" | "casita";
+  rol:
+    | "piso"
+    | "columna"
+    | "columna-base"
+    | "casita"
+    | "casita-frente"
+    | "casita-fondo"
+    | "casita-lateral"
+    | "casita-techo"
+    | "casita-columna-techo";
   etiqueta: string;
   anchoCm: number;
   largoCm: number;
@@ -71,7 +116,16 @@ export type TramoComputado = {
   columnaPosiciones: ColumnaPosicionConfig[];
   zInferiorCm: number;
   zSuperiorCm: number;
-  pisoArribaEtiqueta: string;
+  pisoArribaEtiqueta?: string;
+};
+
+export type CasitaComputada = {
+  config: CasitaEnPisoConfig;
+  posicionCm: ColumnaPosicionConfig;
+  zInferiorCm: number;
+  zCuerpoSuperiorCm: number;
+  zTechoSuperiorCm: number;
+  zSuperiorCm: number;
 };
 
 export type NivelComputado = {
@@ -82,6 +136,7 @@ export type NivelComputado = {
   zInferiorCm: number;
   zSuperiorCm: number;
   tramo?: TramoComputado;
+  casita?: CasitaComputada;
   posicionCm: PisoPosicionConfig;
   pisoInferior?: Pick<PisoNivelConfig, "id" | "etiqueta" | "anchoCm" | "largoCm">;
 };
@@ -103,8 +158,7 @@ export function withDefaultPositions(
   const base = {
     columnaCantidad: tramo.columnaCantidad,
     columnaAltoCm: tramo.columnaAltoCm,
-    columnaAnchoCm: tramo.columnaAnchoCm,
-    columnaProfundoCm: tramo.columnaProfundoCm,
+    columnaDiametroCm: readColumnaDiametroCm(tramo),
     casitaActiva: tramo.casitaActiva,
     casitaColumnaIndice: tramo.casitaColumnaIndice,
     casitaAnchoCm: tramo.casitaAnchoCm,
@@ -118,8 +172,7 @@ export const DEFAULT_SOPORTE_TRAMO: SoporteTramoConfig = withDefaultPositions(
   {
     columnaCantidad: 3,
     columnaAltoCm: 30,
-    columnaAnchoCm: 8,
-    columnaProfundoCm: 8,
+    columnaDiametroCm: 8,
     casitaActiva: false,
     casitaColumnaIndice: 2,
     casitaAnchoCm: 28,
@@ -166,8 +219,7 @@ export const DEFAULT_RASCADOR_CONFIG: RascadorEnsambleConfig = {
         {
           columnaCantidad: 2,
           columnaAltoCm: 38,
-          columnaAnchoCm: 8,
-          columnaProfundoCm: 8,
+          columnaDiametroCm: 8,
           casitaActiva: true,
           casitaColumnaIndice: 2,
           casitaAnchoCm: 28,
@@ -189,8 +241,7 @@ export const DEFAULT_RASCADOR_CONFIG: RascadorEnsambleConfig = {
         {
           columnaCantidad: 3,
           columnaAltoCm: 28,
-          columnaAnchoCm: 8,
-          columnaProfundoCm: 8,
+          columnaDiametroCm: 8,
           casitaActiva: false,
           casitaColumnaIndice: 2,
           casitaAnchoCm: 28,
@@ -208,8 +259,7 @@ export const DEFAULT_RASCADOR_CONFIG: RascadorEnsambleConfig = {
         {
           columnaCantidad: 3,
           columnaAltoCm: 28,
-          columnaAnchoCm: 8,
-          columnaProfundoCm: 8,
+          columnaDiametroCm: 8,
           casitaActiva: false,
           casitaColumnaIndice: 2,
           casitaAnchoCm: 28,
@@ -338,7 +388,10 @@ function footprintCm(
     tramo.casitaActiva && columnaIndex === tramo.casitaColumnaIndice;
   return esCasita
     ? { anchoCm: tramo.casitaAnchoCm, profundoCm: tramo.casitaProfundoCm }
-    : { anchoCm: tramo.columnaAnchoCm, profundoCm: tramo.columnaProfundoCm };
+    : {
+        anchoCm: tramo.columnaDiametroCm,
+        profundoCm: tramo.columnaDiametroCm,
+      };
 }
 
 export function clampColumnaPosicion(
@@ -387,13 +440,20 @@ export function normalizeSoporteTramo(
   });
 
   return {
-    ...tramo,
     columnaCantidad,
+    columnaAltoCm: tramo.columnaAltoCm,
+    columnaDiametroCm: Math.max(
+      MADERA_ESPESOR_CM,
+      readColumnaDiametroCm(tramo),
+    ),
+    columnaPosiciones,
+    casitaActiva: tramo.casitaActiva,
     casitaColumnaIndice: clampColumnIndex({
       ...tramo,
       columnaCantidad,
     }),
-    columnaPosiciones,
+    casitaAnchoCm: tramo.casitaAnchoCm,
+    casitaProfundoCm: tramo.casitaProfundoCm,
   };
 }
 
@@ -401,6 +461,123 @@ function clampColumnIndex(tramo: SoporteTramoConfig): number {
   const max = Math.max(1, Math.floor(tramo.columnaCantidad));
   const idx = Math.floor(tramo.casitaColumnaIndice);
   return Math.min(max, Math.max(1, idx));
+}
+
+export function normalizeCasitaEnPiso(
+  casita: CasitaEnPisoConfig,
+  pisoAnchoCm: number,
+  pisoLargoCm: number,
+): CasitaEnPisoConfig {
+  const anchoCm = Math.max(MADERA_ESPESOR_CM, casita.anchoCm);
+  const largoCm = Math.max(MADERA_ESPESOR_CM, casita.largoCm);
+  const altoCm = Math.max(MADERA_ESPESOR_CM, casita.altoCm);
+  const fallback = buildDefaultPisoPosicion(pisoAnchoCm, pisoLargoCm);
+  const posicionCm = clampColumnaPosicion(
+    casita.posicionCm ?? fallback,
+    pisoAnchoCm,
+    pisoLargoCm,
+    anchoCm,
+    largoCm,
+  );
+  return {
+    ...casita,
+    anchoCm,
+    largoCm,
+    altoCm,
+    posicionCm,
+    columnaAltoCm: Math.max(MADERA_ESPESOR_CM, casita.columnaAltoCm),
+    columnaDiametroCm: Math.max(
+      MADERA_ESPESOR_CM,
+      readColumnaDiametroCm(casita),
+    ),
+  };
+}
+
+function computeCasitaComputada(
+  casita: CasitaEnPisoConfig,
+  zTablaSuperiorCm: number,
+  pisoAnchoCm: number,
+  pisoLargoCm: number,
+): CasitaComputada {
+  const config = normalizeCasitaEnPiso(casita, pisoAnchoCm, pisoLargoCm);
+  const zInferiorCm = zTablaSuperiorCm;
+  const zCuerpoSuperiorCm = zInferiorCm + config.altoCm;
+  const zTechoSuperiorCm = zCuerpoSuperiorCm + MADERA_ESPESOR_CM;
+  const zSuperiorCm =
+    zTechoSuperiorCm +
+    (config.columnaEnTecho ? config.columnaAltoCm : 0);
+  return {
+    config,
+    posicionCm: config.posicionCm,
+    zInferiorCm,
+    zCuerpoSuperiorCm,
+    zTechoSuperiorCm,
+    zSuperiorCm,
+  };
+}
+
+function appendCasitaEnPisoPiezas(
+  piezas: RascadorPieza[],
+  casita: CasitaEnPisoConfig,
+  nivelEtiqueta: string,
+  pisoIndex: number,
+): void {
+  const prefix = `casita-piso-${pisoIndex}`;
+  const e = MADERA_ESPESOR_CM;
+  piezas.push(
+    {
+      id: `${prefix}-frente`,
+      rol: "casita-frente",
+      etiqueta: `${nivelEtiqueta} · casita frente`,
+      anchoCm: casita.anchoCm,
+      largoCm: e,
+      altoCm: casita.altoCm,
+      cantidad: 1,
+      notas: MADERA_NOTA,
+    },
+    {
+      id: `${prefix}-fondo`,
+      rol: "casita-fondo",
+      etiqueta: `${nivelEtiqueta} · casita fondo`,
+      anchoCm: casita.anchoCm,
+      largoCm: e,
+      altoCm: casita.altoCm,
+      cantidad: 1,
+      notas: MADERA_NOTA,
+    },
+    {
+      id: `${prefix}-lateral`,
+      rol: "casita-lateral",
+      etiqueta: `${nivelEtiqueta} · casita lateral`,
+      anchoCm: e,
+      largoCm: casita.largoCm,
+      altoCm: casita.altoCm,
+      cantidad: 2,
+      notas: MADERA_NOTA,
+    },
+    {
+      id: `${prefix}-techo`,
+      rol: "casita-techo",
+      etiqueta: `${nivelEtiqueta} · casita techo`,
+      anchoCm: casita.anchoCm,
+      largoCm: casita.largoCm,
+      altoCm: e,
+      cantidad: 1,
+      notas: MADERA_NOTA,
+    },
+  );
+  if (casita.columnaEnTecho) {
+    piezas.push({
+      id: `${prefix}-columna-techo`,
+      rol: "casita-columna-techo",
+      etiqueta: `${nivelEtiqueta} · columna techo casita`,
+      anchoCm: casita.columnaDiametroCm,
+      largoCm: casita.columnaDiametroCm,
+      altoCm: casita.columnaAltoCm,
+      cantidad: 1,
+      notas: columnaDiametroNota(casita.columnaDiametroCm),
+    });
+  }
 }
 
 function appendTramoPiezas(
@@ -416,6 +593,7 @@ function appendTramoPiezas(
   });
   const casitaAltoCm = tramo.columnaAltoCm * CASITA_HEIGHT_RATIO;
   const columnaBaseAltoCm = tramo.columnaAltoCm - casitaAltoCm;
+  const d = tramo.columnaDiametroCm;
 
   for (let i = 1; i <= columnaCantidad; i += 1) {
     const conCasita = tramo.casitaActiva && i === casitaColumna;
@@ -426,11 +604,11 @@ function appendTramoPiezas(
         id: `columna-base-${prefix}`,
         rol: "columna-base",
         etiqueta: `${nivelEtiqueta} · columna ${i} (base)`,
-        anchoCm: tramo.columnaAnchoCm,
-        largoCm: tramo.columnaProfundoCm,
+        anchoCm: d,
+        largoCm: d,
         altoCm: columnaBaseAltoCm,
         cantidad: 1,
-        notas: `${(1 - CASITA_HEIGHT_RATIO) * 100}% del tramo · ${MADERA_NOTA}`,
+        notas: `${(1 - CASITA_HEIGHT_RATIO) * 100}% del tramo · ${columnaDiametroNota(d)}`,
       });
       piezas.push({
         id: `casita-${prefix}`,
@@ -447,11 +625,11 @@ function appendTramoPiezas(
         id: `columna-${prefix}`,
         rol: "columna",
         etiqueta: `${nivelEtiqueta} · columna ${i}`,
-        anchoCm: tramo.columnaAnchoCm,
-        largoCm: tramo.columnaProfundoCm,
+        anchoCm: d,
+        largoCm: d,
         altoCm: tramo.columnaAltoCm,
         cantidad: 1,
-        notas: MADERA_NOTA,
+        notas: columnaDiametroNota(d),
       });
     }
   }
@@ -490,7 +668,8 @@ export function computeRascadorEnsamble(
 
     const zInferiorCm = z;
     z += MADERA_ESPESOR_CM;
-    const zSuperiorCm = z;
+    const zTablaSuperiorCm = z;
+    let zNivelSuperiorCm = zTablaSuperiorCm;
 
     piezas.push({
       id: `piso-${piso.id}`,
@@ -504,9 +683,10 @@ export function computeRascadorEnsamble(
     });
 
     let tramo: TramoComputado | undefined;
+    let casitaComputada: CasitaComputada | undefined;
 
-    if (piso.soporte && pisoArriba) {
-      const zTramoInferior = z;
+    if (piso.soporte) {
+      const zTramoInferior = zTablaSuperiorCm;
       const soporte = normalizeSoporteTramo(
         piso.soporte,
         piso.anchoCm,
@@ -514,8 +694,9 @@ export function computeRascadorEnsamble(
       );
       const casitaAltoCm = soporte.columnaAltoCm * CASITA_HEIGHT_RATIO;
       const columnaBaseAltoCm = soporte.columnaAltoCm - casitaAltoCm;
+      const zTramoSuperior = zTramoInferior + soporte.columnaAltoCm;
 
-      z += soporte.columnaAltoCm;
+      zNivelSuperiorCm = Math.max(zNivelSuperiorCm, zTramoSuperior);
       tramo = {
         casitaAltoCm,
         columnaBaseAltoCm,
@@ -525,12 +706,33 @@ export function computeRascadorEnsamble(
         pisoLargoCm: piso.largoCm,
         columnaPosiciones: soporte.columnaPosiciones,
         zInferiorCm: zTramoInferior,
-        zSuperiorCm: z,
-        pisoArribaEtiqueta: pisoArriba.etiqueta,
+        zSuperiorCm: zTramoSuperior,
+        pisoArribaEtiqueta: pisoArriba?.etiqueta,
       };
 
       appendTramoPiezas(piezas, tramo.soporte, piso.etiqueta, indice);
     }
+
+    if (piso.casita) {
+      casitaComputada = computeCasitaComputada(
+        piso.casita,
+        zTablaSuperiorCm,
+        piso.anchoCm,
+        piso.largoCm,
+      );
+      zNivelSuperiorCm = Math.max(
+        zNivelSuperiorCm,
+        casitaComputada.zSuperiorCm,
+      );
+      appendCasitaEnPisoPiezas(
+        piezas,
+        casitaComputada.config,
+        piso.etiqueta,
+        indice,
+      );
+    }
+
+    z = zNivelSuperiorCm;
 
     const posicionCm =
       !pisoInferior
@@ -542,8 +744,9 @@ export function computeRascadorEnsamble(
       piso,
       esBase,
       zInferiorCm,
-      zSuperiorCm,
+      zSuperiorCm: zNivelSuperiorCm,
       tramo,
+      casita: casitaComputada,
       posicionCm,
       pisoInferior: pisoInferior
         ? {
@@ -576,6 +779,113 @@ export function parsePositiveInt(value: string, fallback: number): number {
   return parsed;
 }
 
+export function casitaToDraft(casita: CasitaEnPisoConfig): CasitaEnPisoDraft {
+  return {
+    posicionCm: {
+      xCm: String(casita.posicionCm.xCm),
+      yCm: String(casita.posicionCm.yCm),
+    },
+    anchoCm: String(casita.anchoCm),
+    largoCm: String(casita.largoCm),
+    altoCm: String(casita.altoCm),
+    columnaEnTecho: casita.columnaEnTecho,
+    columnaAltoCm: String(casita.columnaAltoCm),
+    columnaDiametroCm: String(casita.columnaDiametroCm),
+  };
+}
+
+export function createDefaultCasitaEnPisoDraft(
+  pisoAnchoCm: number,
+  pisoLargoCm: number,
+): CasitaEnPisoDraft {
+  const pos = buildDefaultPisoPosicion(pisoAnchoCm, pisoLargoCm);
+  return {
+    ...DEFAULT_CASITA_DRAFT,
+    posicionCm: {
+      xCm: String(Math.round(pos.xCm)),
+      yCm: String(Math.round(pos.yCm)),
+    },
+  };
+}
+
+export function syncCasitaDraftPosition(
+  casita: CasitaEnPisoDraft,
+  pisoAnchoCm: number,
+  pisoLargoCm: number,
+  anchoCm: number,
+  largoCm: number,
+): CasitaEnPisoDraft {
+  const parsed = parseCasitaEnPiso(
+    casita,
+    pisoAnchoCm,
+    pisoLargoCm,
+    normalizeCasitaEnPiso(
+      {
+        posicionCm: buildDefaultPisoPosicion(pisoAnchoCm, pisoLargoCm),
+        anchoCm,
+        largoCm,
+        altoCm: parsePositiveCm(casita.altoCm, 24),
+        columnaEnTecho: casita.columnaEnTecho,
+        columnaAltoCm: parsePositiveCm(casita.columnaAltoCm, 20),
+        columnaDiametroCm: parsePositiveCm(casita.columnaDiametroCm, 8),
+      },
+      pisoAnchoCm,
+      pisoLargoCm,
+    ),
+  );
+  return casitaToDraft(parsed);
+}
+
+export function parseCasitaEnPiso(
+  draft: CasitaEnPisoDraft,
+  pisoAnchoCm: number,
+  pisoLargoCm: number,
+  fallback?: CasitaEnPisoConfig,
+): CasitaEnPisoConfig {
+  const def = fallback ?? normalizeCasitaEnPiso(
+    {
+      posicionCm: buildDefaultPisoPosicion(pisoAnchoCm, pisoLargoCm),
+      anchoCm: 28,
+      largoCm: 28,
+      altoCm: 24,
+      columnaEnTecho: false,
+      columnaAltoCm: 20,
+      columnaDiametroCm: 8,
+    },
+    pisoAnchoCm,
+    pisoLargoCm,
+  );
+  const posFallback = def.posicionCm;
+  return normalizeCasitaEnPiso(
+    {
+      posicionCm: {
+        xCm: parsePositiveCm(draft.posicionCm.xCm, posFallback.xCm),
+        yCm: parsePositiveCm(draft.posicionCm.yCm, posFallback.yCm),
+      },
+      anchoCm: parsePositiveCm(draft.anchoCm, def.anchoCm),
+      largoCm: parsePositiveCm(draft.largoCm, def.largoCm),
+      altoCm: parsePositiveCm(draft.altoCm, def.altoCm),
+      columnaEnTecho: draft.columnaEnTecho,
+      columnaAltoCm: parsePositiveCm(draft.columnaAltoCm, def.columnaAltoCm),
+      columnaDiametroCm: parseColumnaDiametroFromDraft(
+        draft,
+        def.columnaDiametroCm,
+      ),
+    },
+    pisoAnchoCm,
+    pisoLargoCm,
+  );
+}
+
+function parseColumnaDiametroFromDraft(
+  draft: { columnaDiametroCm?: string; columnaAnchoCm?: string },
+  fallback: number,
+): number {
+  const raw =
+    draft.columnaDiametroCm?.trim() || draft.columnaAnchoCm?.trim() || "";
+  return parsePositiveCm(raw, fallback);
+}
+
 export function parseSoporteTramo(
   draft: SoporteTramoDraft,
   pisoAnchoCm: number,
@@ -603,13 +913,9 @@ export function parseSoporteTramo(
     {
       columnaCantidad,
       columnaAltoCm: parsePositiveCm(draft.columnaAltoCm, fallback.columnaAltoCm),
-      columnaAnchoCm: parsePositiveCm(
-        draft.columnaAnchoCm,
-        fallback.columnaAnchoCm,
-      ),
-      columnaProfundoCm: parsePositiveCm(
-        draft.columnaProfundoCm,
-        fallback.columnaProfundoCm,
+      columnaDiametroCm: parseColumnaDiametroFromDraft(
+        draft,
+        fallback.columnaDiametroCm,
       ),
       columnaPosiciones,
       casitaActiva: draft.casitaActiva,
@@ -636,8 +942,7 @@ export type ColumnaPosicionDraft = {
 export type SoporteTramoDraft = {
   columnaCantidad: string;
   columnaAltoCm: string;
-  columnaAnchoCm: string;
-  columnaProfundoCm: string;
+  columnaDiametroCm: string;
   columnaPosiciones: ColumnaPosicionDraft[];
   casitaActiva: boolean;
   casitaColumnaIndice: string;
@@ -650,6 +955,26 @@ export type PisoPosicionDraft = {
   yCm: string;
 };
 
+export type CasitaEnPisoDraft = {
+  posicionCm: ColumnaPosicionDraft;
+  anchoCm: string;
+  largoCm: string;
+  altoCm: string;
+  columnaEnTecho: boolean;
+  columnaAltoCm: string;
+  columnaDiametroCm: string;
+};
+
+export const DEFAULT_CASITA_DRAFT: CasitaEnPisoDraft = {
+  posicionCm: { xCm: "30", yCm: "20" },
+  anchoCm: "28",
+  largoCm: "28",
+  altoCm: "24",
+  columnaEnTecho: false,
+  columnaAltoCm: "20",
+  columnaDiametroCm: "8",
+};
+
 export type PisoNivelDraft = {
   id: string;
   etiqueta: string;
@@ -658,6 +983,8 @@ export type PisoNivelDraft = {
   esBase: boolean;
   conColumnas: boolean;
   soporte: SoporteTramoDraft | null;
+  conCasita: boolean;
+  casita: CasitaEnPisoDraft | null;
   posicionCm: PisoPosicionDraft | null;
 };
 
@@ -665,8 +992,7 @@ export function soporteToDraft(soporte: SoporteTramoConfig): SoporteTramoDraft {
   return {
     columnaCantidad: String(soporte.columnaCantidad),
     columnaAltoCm: String(soporte.columnaAltoCm),
-    columnaAnchoCm: String(soporte.columnaAnchoCm),
-    columnaProfundoCm: String(soporte.columnaProfundoCm),
+    columnaDiametroCm: String(soporte.columnaDiametroCm),
     columnaPosiciones: soporte.columnaPosiciones.map((pos) => ({
       xCm: String(pos.xCm),
       yCm: String(pos.yCm),
@@ -767,6 +1093,8 @@ export function pisoToDraft(
     esBase,
     conColumnas: !!piso.soporte,
     soporte: piso.soporte ? soporteToDraft(piso.soporte) : null,
+    conCasita: !!piso.casita,
+    casita: piso.casita ? casitaToDraft(piso.casita) : null,
     posicionCm: piso.posicionCm
       ? {
           xCm: String(piso.posicionCm.xCm),
@@ -779,7 +1107,7 @@ export function pisoToDraft(
 export function draftToPiso(
   draft: PisoNivelDraft,
   pisoInferior?: Pick<PisoNivelConfig, "anchoCm" | "largoCm">,
-  soportaPisoArriba = false,
+  _soportaElementosEnTabla = true,
   fallbackSoporte = DEFAULT_SOPORTE_TRAMO,
 ): PisoNivelConfig {
   const def = DEFAULT_RASCADOR_CONFIG.pisos[0] ?? {
@@ -804,7 +1132,7 @@ export function draftToPiso(
           largoCm,
         ),
     soporte:
-      !soportaPisoArriba || !draft.conColumnas || !draft.soporte
+      !draft.conColumnas || !draft.soporte
         ? undefined
         : parseSoporteTramo(
             draft.soporte,
@@ -812,6 +1140,10 @@ export function draftToPiso(
             largoCm,
             fallbackSoporte,
           ),
+    casita:
+      !draft.conCasita || !draft.casita
+        ? undefined
+        : parseCasitaEnPiso(draft.casita, anchoCm, largoCm),
   };
 }
 
@@ -855,6 +1187,8 @@ export function createEmptyPisoDraft(
     esBase,
     conColumnas: false,
     soporte: null,
+    conCasita: false,
+    casita: null,
     posicionCm: null,
   };
 }
@@ -865,18 +1199,12 @@ export function findBaseDraftIndex(
   return pisos.findIndex((p) => p.esBase);
 }
 
-/** Puede llevar columnas hacia el nivel de arriba (índice menor en la lista). */
+/** Cualquier piso del modelo puede tener columnas o casita sobre su tabla. */
 export function pisoSoportaNivelArriba(
-  index: number,
+  _index: number,
   pisos: Array<Pick<PisoNivelDraft, "esBase">>,
 ): boolean {
-  if (pisos.length < 2) return false;
-  const baseIndex = findBaseDraftIndex(pisos);
-  if (baseIndex >= 0) {
-    if (index === baseIndex) return baseIndex > 0;
-    return index > 0 && index < baseIndex;
-  }
-  return index > 0 && index < pisos.length - 1;
+  return pisos.length >= 1;
 }
 
 /** Número de piso elevado: 1 = primero sobre la base. */
