@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
 import { getDisplayUsername } from "@/lib/auth/display";
 import { startPageNavigation } from "@/lib/navigation-loading";
+import EnsambleCotizacionPanel from "@/components/admin/EnsambleCotizacionPanel";
 import EnsambleRascadorPreview from "@/components/admin/EnsambleRascadorPreview";
+import { buildQuoteProductOptions } from "@/lib/materials/quote-products";
+import { DEFAULT_ENSAMBLE_COTIZACION_PREFS } from "@/lib/ensamble/cotizacion-prefs";
+import type { EnsambleCotizacionPrefs } from "@/lib/ensamble/types";
+import type { CommittedQuoteLine } from "@/lib/materials/quote-line";
+import type { StockEntry } from "@/lib/materials/types";
 import {
   computeRascadorEnsamble,
   configToDraftPisos,
@@ -608,6 +614,10 @@ type EnsambleRascadorProps = {
   mode: "create" | "edit";
   ensambleId?: string;
   initialConfig: RascadorEnsambleConfig;
+  initialDescripcion?: string;
+  initialMateriales?: CommittedQuoteLine[];
+  initialCotizacionPrefs?: EnsambleCotizacionPrefs;
+  stockEntries: StockEntry[];
   canEdit: boolean;
   canWrite: boolean;
   createdBy?: string;
@@ -617,6 +627,10 @@ export default function EnsambleRascador({
   mode,
   ensambleId,
   initialConfig,
+  initialDescripcion = "",
+  initialMateriales = [],
+  initialCotizacionPrefs = DEFAULT_ENSAMBLE_COTIZACION_PREFS,
+  stockEntries,
   canEdit,
   canWrite,
   createdBy,
@@ -631,6 +645,13 @@ export default function EnsambleRascador({
   );
   const [previewExpanded, setPreviewExpanded] = useState(true);
   const [piezasExpanded, setPiezasExpanded] = useState(true);
+  const [cotizacionExpanded, setCotizacionExpanded] = useState(true);
+  const [descripcion, setDescripcion] = useState(initialDescripcion);
+  const [materiales, setMateriales] =
+    useState<CommittedQuoteLine[]>(initialMateriales);
+  const [cotizacionPrefs, setCotizacionPrefs] = useState(
+    initialCotizacionPrefs,
+  );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -640,6 +661,15 @@ export default function EnsambleRascador({
   const computed = useMemo(
     () => computeRascadorEnsamble(draftPisosToConfig(nombre, pisosDraft)),
     [nombre, pisosDraft],
+  );
+
+  const quoteProducts = useMemo(
+    () => buildQuoteProductOptions(stockEntries),
+    [stockEntries],
+  );
+  const productMap = useMemo(
+    () => new Map(quoteProducts.map((p) => [p.key, p])),
+    [quoteProducts],
   );
 
   const setPisosDraftNormalized = (
@@ -739,6 +769,9 @@ export default function EnsambleRascador({
     const payload = {
       tipo: "rascador-gatos" as const,
       config: buildConfig(),
+      descripcion,
+      materiales,
+      cotizacionPrefs,
     };
 
     try {
@@ -1178,22 +1211,47 @@ export default function EnsambleRascador({
               ))}
             </ul>
             )}
-            {computed.piezas.length > 0 && (
-            <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
-              Podés pasar estas medidas al{" "}
-              <Link
-                href="/admin/cotizador"
-                className="font-medium text-amber-700 hover:underline dark:text-amber-400"
-              >
-                cotizador
-              </Link>
-              . La vista imita la estructura de tus rascadores (pisos + columnas +
-              casita opcional).
-            </p>
-            )}
           </CollapsiblePanel>
         </div>
       </div>
+
+      <CollapsiblePanel
+        title="Cotización (materiales)"
+        subtitle={
+          materiales.length === 0
+            ? "Tela, hilo, tornillos y stock"
+            : `${materiales.length} materiales cotizados`
+        }
+        expanded={cotizacionExpanded}
+        onToggle={() => setCotizacionExpanded((v) => !v)}
+        className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+      >
+        {quoteProducts.length === 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            No hay productos en stock marcados para cotizador.{" "}
+            <Link
+              href="/admin/stock"
+              className="font-medium text-amber-700 dark:text-amber-400"
+            >
+              Cargá stock
+            </Link>{" "}
+            con &quot;Usar en cotizador&quot;.
+          </p>
+        ) : (
+          <EnsambleCotizacionPanel
+            config={computed.config}
+            descripcion={descripcion}
+            materiales={materiales}
+            cotizacionPrefs={cotizacionPrefs}
+            products={quoteProducts}
+            productMap={productMap}
+            canEdit={canEdit}
+            onDescripcionChange={setDescripcion}
+            onMaterialesChange={setMateriales}
+            onPrefsChange={setCotizacionPrefs}
+          />
+        )}
+      </CollapsiblePanel>
     </div>
   );
 }

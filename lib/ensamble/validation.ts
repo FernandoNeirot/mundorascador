@@ -1,7 +1,9 @@
+import { parseMateriales } from "@/lib/cotizador/validation";
 import {
   EMPTY_RASCADOR_CONFIG,
   normalizeConfigPisosOrder,
 } from "./cat-scratcher";
+import { normalizeEnsambleCotizacionPrefs } from "./cotizacion-prefs";
 import type {
   CasitaEnPisoConfig,
   ColumnaPosicionConfig,
@@ -12,6 +14,7 @@ import type {
 } from "./cat-scratcher";
 import type {
   CreateEnsambleInput,
+  EnsambleCotizacionPrefs,
   EnsambleTipo,
   UpdateEnsambleInput,
 } from "./types";
@@ -133,6 +136,23 @@ function parseTipo(value: unknown): EnsambleTipo | null {
   return null;
 }
 
+function parseDescripcion(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
+function parseCotizacionPrefs(
+  value: unknown,
+): EnsambleCotizacionPrefs | string {
+  if (value === undefined) {
+    return normalizeEnsambleCotizacionPrefs(undefined);
+  }
+  if (!value || typeof value !== "object") {
+    return "Preferencias de cotización inválidas.";
+  }
+  return normalizeEnsambleCotizacionPrefs(value);
+}
+
 export function validateCreateEnsamble(
   body: unknown,
 ): ValidationResult<CreateEnsambleInput> {
@@ -146,19 +166,40 @@ export function validateCreateEnsamble(
     return { ok: false, error: "Tipo de ensamble no válido." };
   }
 
-  if (record.config === undefined) {
-    return { ok: true, data: { tipo, config: EMPTY_RASCADOR_CONFIG } };
-  }
+  const config =
+    record.config === undefined
+      ? EMPTY_RASCADOR_CONFIG
+      : isValidRascadorConfig(record.config)
+        ? normalizeConfigPisosOrder(record.config)
+        : null;
 
-  if (!isValidRascadorConfig(record.config)) {
+  if (!config) {
     return { ok: false, error: "Configuración del rascador inválida." };
   }
+
+  if (record.materiales !== undefined) {
+    const materiales = parseMateriales(record.materiales);
+    if (typeof materiales === "string") {
+      return { ok: false, error: materiales };
+    }
+  }
+
+  const prefs = parseCotizacionPrefs(record.cotizacionPrefs);
+  if (typeof prefs === "string") {
+    return { ok: false, error: prefs };
+  }
+
+  const materialesParsed = parseMateriales(record.materiales ?? []);
 
   return {
     ok: true,
     data: {
       tipo,
-      config: normalizeConfigPisosOrder(record.config),
+      config,
+      descripcion: parseDescripcion(record.descripcion),
+      materiales:
+        typeof materialesParsed === "string" ? [] : materialesParsed,
+      cotizacionPrefs: prefs,
     },
   };
 }
@@ -171,12 +212,43 @@ export function validateUpdateEnsamble(
   }
 
   const record = body as Record<string, unknown>;
-  if (!isValidRascadorConfig(record.config)) {
-    return { ok: false, error: "Configuración del rascador inválida." };
+  const data: UpdateEnsambleInput = {};
+
+  if (record.config !== undefined) {
+    if (!isValidRascadorConfig(record.config)) {
+      return { ok: false, error: "Configuración del rascador inválida." };
+    }
+    data.config = normalizeConfigPisosOrder(record.config);
   }
 
-  return {
-    ok: true,
-    data: { config: normalizeConfigPisosOrder(record.config) },
-  };
+  if (record.descripcion !== undefined) {
+    data.descripcion = parseDescripcion(record.descripcion);
+  }
+
+  if (record.materiales !== undefined) {
+    const materiales = parseMateriales(record.materiales);
+    if (typeof materiales === "string") {
+      return { ok: false, error: materiales };
+    }
+    data.materiales = materiales;
+  }
+
+  if (record.cotizacionPrefs !== undefined) {
+    const prefs = parseCotizacionPrefs(record.cotizacionPrefs);
+    if (typeof prefs === "string") {
+      return { ok: false, error: prefs };
+    }
+    data.cotizacionPrefs = prefs;
+  }
+
+  if (
+    data.config === undefined &&
+    data.descripcion === undefined &&
+    data.materiales === undefined &&
+    data.cotizacionPrefs === undefined
+  ) {
+    return { ok: false, error: "No hay cambios para guardar." };
+  }
+
+  return { ok: true, data };
 }

@@ -138,11 +138,13 @@ function CasitaSideView({
           x={
             hostOX +
             casita.posicionCm.xCm -
-            casita.config.columnaAnchoCm / 2
+            casita.config.columnaDiametroCm / 2
           }
           y={zToY(casita.zSuperiorCm, alturaTotalCm, sideViewH, bottomPad)}
-          width={casita.config.columnaAnchoCm}
+          width={casita.config.columnaDiametroCm}
           height={casita.config.columnaAltoCm}
+          rx={casita.config.columnaDiametroCm / 2}
+          ry={casita.config.columnaDiametroCm / 2}
           fill={COLORS.columna}
           stroke={COLORS.stroke}
           strokeWidth={0.35}
@@ -334,10 +336,8 @@ export default function EnsambleRascadorPreview({
                   </text>
                   {tramo?.columnaPosiciones.map((pos, index) => {
                     const isCasitaCol = index === casitaCol;
-                    const w = isCasitaCol && tramo.soporte.casitaActiva
-                      ? tramo.soporte.casitaAnchoCm
-                      : tramo.soporte.columnaAnchoCm;
-                    const x = colOffsetX + pos.xCm - w / 2;
+                    const d = tramo.soporte.columnaDiametroCm;
+                    const cx = colOffsetX + pos.xCm;
 
                     if (isCasitaCol && tramo.soporte.casitaActiva) {
                       const baseH =
@@ -346,8 +346,7 @@ export default function EnsambleRascadorPreview({
                       const houseH = tramoH - baseH;
                       const houseW = tramo.soporte.casitaAnchoCm;
                       const houseX = colOffsetX + pos.xCm - houseW / 2;
-                      const colW = tramo.soporte.columnaAnchoCm;
-                      const colX = colOffsetX + pos.xCm - colW / 2;
+                      const colX = cx - d / 2;
                       const yBaseTop = yColBottom - baseH;
 
                       return (
@@ -355,8 +354,10 @@ export default function EnsambleRascadorPreview({
                           <rect
                             x={colX}
                             y={yBaseTop}
-                            width={colW}
+                            width={d}
                             height={baseH}
+                            rx={d / 2}
+                            ry={d / 2}
                             fill={COLORS.columnaBase}
                             stroke={COLORS.stroke}
                             strokeWidth={0.35}
@@ -381,13 +382,16 @@ export default function EnsambleRascadorPreview({
                       );
                     }
 
+                    const yTop = yColBottom - tramoH;
                     return (
                       <rect
                         key={`col-${nivel.piso.id}-${index}`}
-                        x={x}
-                        y={yColBottom - tramoH}
-                        width={w}
+                        x={cx - d / 2}
+                        y={yTop}
+                        width={d}
                         height={tramoH}
+                        rx={d / 2}
+                        ry={d / 2}
                         fill={COLORS.columna}
                         stroke={COLORS.stroke}
                         strokeWidth={0.35}
@@ -471,33 +475,36 @@ export default function EnsambleRascadorPreview({
                   />
                   {tramo?.columnaPosiciones.map((pos, index) => {
                     const isCasitaCol = index === casitaCol;
-                    const w =
-                      isCasitaCol && tramo.soporte.casitaActiva
-                        ? tramo.soporte.casitaAnchoCm
-                        : tramo.soporte.columnaAnchoCm;
-                    const d =
-                      isCasitaCol && tramo.soporte.casitaActiva
-                        ? tramo.soporte.casitaProfundoCm
-                        : tramo.soporte.columnaProfundoCm;
-                    const x = hostOX + pos.xCm - w / 2;
-                    const y = hostOY + pos.yCm - d / 2;
+                    if (isCasitaCol && tramo.soporte.casitaActiva) {
+                      const w = tramo.soporte.casitaAnchoCm;
+                      const depth = tramo.soporte.casitaProfundoCm;
+                      return (
+                        <rect
+                          key={`plan-col-${nivel.piso.id}-${index}`}
+                          x={hostOX + pos.xCm - w / 2}
+                          y={hostOY + pos.yCm - depth / 2}
+                          width={w}
+                          height={depth}
+                          fill={COLORS.casita}
+                          fillOpacity={0.75}
+                          stroke={COLORS.stroke}
+                          strokeWidth={0.4}
+                          rx={1}
+                        />
+                      );
+                    }
 
+                    const diametro = tramo.soporte.columnaDiametroCm;
                     return (
-                      <rect
+                      <circle
                         key={`plan-col-${nivel.piso.id}-${index}`}
-                        x={x}
-                        y={y}
-                        width={w}
-                        height={d}
-                        fill={
-                          isCasitaCol && tramo.soporte.casitaActiva
-                            ? COLORS.casita
-                            : COLORS.columna
-                        }
+                        cx={hostOX + pos.xCm}
+                        cy={hostOY + pos.yCm}
+                        r={diametro / 2}
+                        fill={COLORS.columna}
                         fillOpacity={0.75}
                         stroke={COLORS.stroke}
                         strokeWidth={0.4}
-                        rx={1}
                       />
                     );
                   })}
@@ -525,7 +532,7 @@ export default function EnsambleRascadorPreview({
           </svg>
         </div>
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          Cada rectángulo es un piso; los cuadrados grises son columnas. La casita
+          Cada rectángulo es un piso; los círculos grises son columnas redondas. La casita
           violeta muestra paredes de {MADERA_ESPESOR_MM} mm y el interior claro.
         </p>
       </div>

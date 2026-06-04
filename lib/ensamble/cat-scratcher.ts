@@ -635,6 +635,20 @@ function appendTramoPiezas(
   }
 }
 
+/** Cuenta columnas verticales (soporte + columna en techo de casita). */
+export function countColumnasInConfig(config: RascadorEnsambleConfig): number {
+  let total = 0;
+  for (const piso of config.pisos) {
+    if (piso.soporte) {
+      total += Math.max(1, Math.floor(piso.soporte.columnaCantidad));
+    }
+    if (piso.casita?.columnaEnTecho) {
+      total += 1;
+    }
+  }
+  return total;
+}
+
 export function computeRascadorEnsamble(
   config: RascadorEnsambleConfig,
 ): RascadorEnsambleComputed {

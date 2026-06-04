@@ -6,7 +6,9 @@ import CotizacionEditor from "@/components/admin/CotizacionEditor";
 import CotizacionList from "@/components/admin/CotizacionList";
 import { buildQuoteProductOptions } from "@/lib/materials/quote-products";
 import { isCotizacionOwnedBy } from "@/lib/cotizador/permissions";
+import EnsambleCotizadorSection from "@/components/admin/EnsambleCotizadorSection";
 import type { Cotizacion } from "@/lib/cotizador/types";
+import type { Ensamble } from "@/lib/ensamble/types";
 import type { CommittedQuoteLine } from "@/lib/materials/quote-line";
 import type { StockEntry } from "@/lib/materials/types";
 
@@ -28,6 +30,7 @@ function createDraftCotizacion(): Cotizacion {
 type CotizadorProps = {
   initialEntries: StockEntry[];
   initialCotizaciones: Cotizacion[];
+  initialEnsambles: Ensamble[];
   canWrite: boolean;
   currentUsername: string;
 };
@@ -35,6 +38,7 @@ type CotizadorProps = {
 export default function Cotizador({
   initialEntries,
   initialCotizaciones,
+  initialEnsambles,
   canWrite,
   currentUsername,
 }: CotizadorProps) {
@@ -282,10 +286,19 @@ export default function Cotizador({
           Cotizador
         </h1>
         <p className="mt-2 max-w-2xl text-zinc-600 dark:text-zinc-400">
-          Cada cotización es un producto con nombre, descripción y materiales.
-          Los datos se guardan en Firebase.
+          Cotizaciones sueltas y ensambles (diseño + materiales en un solo
+          documento en Firebase).
         </p>
       </header>
+
+      {products.length > 0 && (
+        <EnsambleCotizadorSection
+          ensambles={initialEnsambles}
+          productMap={productMap}
+          canWrite={canWrite}
+          currentUsername={currentUsername}
+        />
+      )}
 
       {products.length === 0 ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center text-zinc-500 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">

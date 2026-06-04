@@ -51,7 +51,7 @@ function isValidMaterial(value: unknown): value is CotizacionMaterial {
   return true;
 }
 
-function parseMateriales(value: unknown): CotizacionMaterial[] | string {
+export function parseMateriales(value: unknown): CotizacionMaterial[] | string {
   if (value === undefined) return [];
   if (!Array.isArray(value)) return "materiales debe ser un array.";
 
