@@ -1,7 +1,8 @@
 import { getFirestore, type DocumentData } from "firebase-admin/firestore";
 import { getFirebaseAdmin } from "@/lib/firebase/admin";
 import { CM_PER_METER } from "./meter-based";
-import { defaultUsarEnProductos } from "./constants";
+import { defaultUsarEnProductos, WOOD_TYPE_CONFIG } from "./constants";
+import type { WoodType } from "./types";
 import { superficieCm2FromDimensions } from "./superficie";
 import type { CreateStockEntryInput, MaterialType, StockEntry } from "./types";
 
@@ -58,6 +59,7 @@ function buildEntry(
       return {
         ...base,
         type: "maderas",
+        descripcion: input.descripcion,
         anchoCm: input.anchoCm,
         largoCm: input.largoCm,
         superficieCm2: input.superficieCm2,
@@ -165,6 +167,30 @@ function docToEntry(id: string, data: DocumentData): StockEntry | null {
     normalized.cantidadUsada === null
   ) {
     normalized.cantidadUsada = 0;
+  }
+
+  if (normalized.type === "maderas") {
+    if (
+      typeof normalized.descripcion !== "string" ||
+      !normalized.descripcion.trim()
+    ) {
+      const tipoMadera =
+        typeof normalized.tipoMadera === "string"
+          ? (normalized.tipoMadera as WoodType)
+          : "pino";
+      const tipoLabel =
+        WOOD_TYPE_CONFIG[tipoMadera]?.label ?? tipoMadera;
+      const ancho = Number(normalized.anchoCm);
+      const largo = Number(normalized.largoCm);
+      const dims =
+        Number.isFinite(ancho) &&
+        ancho > 0 &&
+        Number.isFinite(largo) &&
+        largo > 0
+          ? ` ${ancho}×${largo} cm`
+          : "";
+      normalized.descripcion = `${tipoLabel}${dims}`.trim();
+    }
   }
 
   if (normalized.type === "maderas" || normalized.type === "telas") {

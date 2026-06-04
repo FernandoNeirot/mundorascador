@@ -41,6 +41,7 @@ const emptyHiloForm = {
 };
 
 const emptyMaderaForm = {
+  descripcion: "",
   anchoCm: "",
   largoCm: "",
   tipoMadera: "pino" as WoodType,
@@ -129,6 +130,7 @@ function getDuplicateFormState(entry: StockEntry) {
         telaForm: emptyTelaForm,
         hiloForm: emptyHiloForm,
         maderaForm: {
+          descripcion: entry.descripcion,
           anchoCm: String(entry.anchoCm),
           largoCm: String(entry.largoCm),
           tipoMadera: entry.tipoMadera,
@@ -305,6 +307,10 @@ export default function AddStockDialog({
     }
 
     if (type === "maderas") {
+      if (!maderaForm.descripcion.trim()) {
+        setError("Ingresá la descripción de la madera.");
+        return null;
+      }
       const anchoCm = parseField(maderaForm.anchoCm, "El ancho");
       if (anchoCm === null) return null;
       const largoCm = parseField(maderaForm.largoCm, "El largo");
@@ -316,6 +322,7 @@ export default function AddStockDialog({
 
       return {
         type: "maderas",
+        descripcion: maderaForm.descripcion.trim(),
         anchoCm,
         largoCm,
         tipoMadera: maderaForm.tipoMadera,
@@ -665,6 +672,21 @@ export default function AddStockDialog({
 
               {type === "maderas" && (
                 <div className="grid gap-4 sm:grid-cols-2">
+                  <label className={`${labelClassName} sm:col-span-2`}>
+                    Descripción
+                    <input
+                      type="text"
+                      value={maderaForm.descripcion}
+                      onChange={(event) =>
+                        setMaderaForm({
+                          ...maderaForm,
+                          descripcion: event.target.value,
+                        })
+                      }
+                      placeholder="Ej. Tabla respaldo sillón"
+                      className={inputClassName}
+                    />
+                  </label>
                   <label className={labelClassName}>
                     Ancho (cm)
                     <input

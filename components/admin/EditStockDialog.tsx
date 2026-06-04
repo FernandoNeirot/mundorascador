@@ -99,6 +99,7 @@ export default function EditStockDialog({
         setQuantity(formatQuantityFromLength(String(entry.largoCm)));
         break;
       case "maderas":
+        setDescripcion(entry.descripcion);
         setAnchoCm(String(entry.anchoCm));
         setLargoCm(String(entry.largoCm));
         setTipoMadera(entry.tipoMadera);
@@ -289,12 +290,17 @@ export default function EditStockDialog({
         };
       }
       case "maderas": {
+        if (!descripcion.trim()) {
+          setError("Ingresá la descripción de la madera.");
+          return null;
+        }
         const parsedAncho = parseField(anchoCm, "El ancho");
         if (parsedAncho === null) return null;
         const parsedLargo = parseField(largoCm, "El largo");
         if (parsedLargo === null) return null;
         return {
           ...base,
+          descripcion: descripcion.trim(),
           anchoCm: parsedAncho,
           largoCm: parsedLargo,
           tipoMadera,
@@ -584,6 +590,16 @@ export default function EditStockDialog({
 
           {editType === "maderas" && (
             <>
+              <label className={labelClassName}>
+                Descripción
+                <input
+                  type="text"
+                  value={descripcion}
+                  onChange={(event) => setDescripcion(event.target.value)}
+                  placeholder="Ej. Tabla respaldo sillón"
+                  className={inputClassName}
+                />
+              </label>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className={labelClassName}>
                   Ancho (cm)

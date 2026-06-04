@@ -90,6 +90,7 @@ export function buildCortesUpdatePayload(
     return {
       ...base,
       type: "maderas",
+      descripcion: entry.descripcion,
       anchoCm: entry.anchoCm,
       largoCm: entry.largoCm,
       tipoMadera: entry.tipoMadera,

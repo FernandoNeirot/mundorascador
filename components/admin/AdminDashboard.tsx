@@ -16,6 +16,11 @@ const actions = [
     title: "Optimizador",
     description: "Simulá cortes en una placa para reducir desperdicio.",
   },
+  {
+    href: "/admin/ensamble",
+    title: "Ensamble",
+    description: "Esquema de rascadores: piso, columnas y casita.",
+  },
 ] as const;
 
 export default function AdminDashboard() {

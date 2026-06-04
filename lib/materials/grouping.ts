@@ -24,7 +24,7 @@ export function getStockGroupKey(entry: StockEntry): string {
     case "hilo":
       return `${base}|${entry.descripcion.toLowerCase()}|${entry.largoCm}`;
     case "maderas":
-      return `${base}|${entry.tipoMadera}|${entry.anchoCm}|${entry.largoCm}`;
+      return `${base}|${entry.descripcion.toLowerCase()}|${entry.tipoMadera}|${entry.anchoCm}|${entry.largoCm}`;
     case "cano":
       return `${base}|${entry.descripcion.toLowerCase()}|${entry.largoCm}`;
     case "herramientas":

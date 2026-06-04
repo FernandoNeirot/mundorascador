@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: "/admin/stock", label: "Ver stock" },
   { href: "/admin/cotizador", label: "Cotizador" },
   { href: "/admin/optimizador", label: "Optimizador" },
+  { href: "/admin/ensamble", label: "Ensamble" },
 ] as const;
 
 const linkClassName =

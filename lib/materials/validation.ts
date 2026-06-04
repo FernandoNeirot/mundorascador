@@ -313,11 +313,15 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
   }
 
   if (type === "maderas") {
+    const descripcion = parseNonEmptyString(record.descripcion);
     const anchoCm = parsePositiveNumber(record.anchoCm, "ancho");
     const largoCm = parsePositiveNumber(record.largoCm, "largo");
     const quantity = parsePositiveNumber(record.quantity, "cantidad");
     const tipoMadera = record.tipoMadera;
 
+    if (!descripcion) {
+      return { ok: false, error: "Ingresá la descripción de la madera." };
+    }
     if (anchoCm === null) {
       return { ok: false, error: "El ancho debe ser mayor a 0 cm" };
     }
@@ -337,6 +341,7 @@ export function validateCreateStockEntry(body: unknown): ValidationResult {
     return finalizeWithCortes(
       {
         type: "maderas",
+        descripcion,
         anchoCm,
         largoCm,
         superficieCm2: superficieCm2FromDimensions(anchoCm, largoCm),

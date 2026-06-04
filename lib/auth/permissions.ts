@@ -1,16 +1,16 @@
 import type { SessionUser, UserRole } from "./types";
 
-/** Usuarios que solo pueden consultar, sin importar su rol asignado. */
-const READONLY_USERNAMES = new Set(["chino"]);
-
-/** Usuarios readonly que pueden crear y editar cotizaciones. */
-const COTIZADOR_WRITE_USERNAMES = new Set(["flavio"]);
+/**
+ * Stock solo lectura (aunque tengan rol admin) y cotizador con alta/edición
+ * de sus propias cotizaciones.
+ */
+const LIMITED_INVENTORY_USERNAMES = new Set(["chino", "flavio"]);
 
 export const canReadStock = (role: UserRole): boolean =>
   role === "superadmin" || role === "admin" || role === "readonly";
 
 export const canWriteStock = (user: SessionUser): boolean => {
-  if (READONLY_USERNAMES.has(user.username.toLowerCase())) {
+  if (LIMITED_INVENTORY_USERNAMES.has(user.username.toLowerCase())) {
     return false;
   }
   return user.role === "superadmin" || user.role === "admin";
@@ -18,5 +18,8 @@ export const canWriteStock = (user: SessionUser): boolean => {
 
 export const canWriteCotizador = (user: SessionUser): boolean => {
   if (canWriteStock(user)) return true;
-  return COTIZADOR_WRITE_USERNAMES.has(user.username.toLowerCase());
+  return LIMITED_INVENTORY_USERNAMES.has(user.username.toLowerCase());
 };
+
+/** Misma política que cotizador: crear y editar ensambles propios. */
+export const canWriteEnsamble = canWriteCotizador;

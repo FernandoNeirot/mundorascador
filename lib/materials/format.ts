@@ -108,7 +108,7 @@ export const formatEntryDetails = (entry: StockEntry): string => {
     case "hilo":
       return `${entry.descripcion} · ${entry.largoCm} cm`;
     case "maderas":
-      return `${WOOD_TYPE_CONFIG[entry.tipoMadera].label} · ${entry.anchoCm} × ${entry.largoCm} cm · ${formatSuperficieCm2(entry.superficieCm2)}`;
+      return `${entry.descripcion} · ${WOOD_TYPE_CONFIG[entry.tipoMadera].label} · ${entry.anchoCm} × ${entry.largoCm} cm · ${formatSuperficieCm2(entry.superficieCm2)}`;
     case "cano":
       return `${entry.descripcion} · ${entry.largoCm} cm`;
     case "herramientas":

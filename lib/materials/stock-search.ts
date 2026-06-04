@@ -35,6 +35,7 @@ function getEntrySearchParts(entry: StockEntry): string[] {
       break;
     case "maderas":
       parts.push(
+        entry.descripcion,
         entry.tipoMadera,
         WOOD_TYPE_CONFIG[entry.tipoMadera].label,
         String(entry.anchoCm),

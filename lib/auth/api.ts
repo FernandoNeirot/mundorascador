@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { canReadStock, canWriteCotizador, canWriteStock } from "./permissions";
+import {
+  canReadStock,
+  canWriteCotizador,
+  canWriteEnsamble,
+  canWriteStock,
+} from "./permissions";
 import { getSessionFromCookies } from "./session";
 import type { SessionUser } from "./types";
 
@@ -33,6 +38,19 @@ export async function requireWriteCotizadorSession(): Promise<
   if (session instanceof NextResponse) return session;
 
   if (!canWriteCotizador(session)) {
+    return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
+  }
+
+  return session;
+}
+
+export async function requireWriteEnsambleSession(): Promise<
+  SessionUser | NextResponse
+> {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
+  if (!canWriteEnsamble(session)) {
     return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
   }
 

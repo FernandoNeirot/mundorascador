@@ -63,6 +63,7 @@ export type FabricLikeStockEntry = TelaStockEntry | GuataStockEntry;
 
 export type MaderaStockEntry = BaseStockEntry & {
   type: "maderas";
+  descripcion: string;
   anchoCm: number;
   largoCm: number;
   /** Superficie de una pieza en cm² (ancho × largo). */
@@ -128,6 +129,7 @@ export type CreateFabricLikeInput = CreateTelaInput | CreateGuataInput;
 
 export type CreateMaderaInput = CreateStockBase & {
   type: "maderas";
+  descripcion: string;
   anchoCm: number;
   largoCm: number;
   superficieCm2: number;

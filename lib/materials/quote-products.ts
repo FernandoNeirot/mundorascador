@@ -27,96 +27,63 @@ function getEntryDescripcion(entry: StockEntry): string {
     case "hilo":
     case "herramientas":
     case "cano":
+    case "maderas":
       return entry.descripcion;
     default:
       return formatEntryDetails(entry);
   }
 }
 
-/** Agrupa por producto sin distinguir quién compró (para cotización). */
+function normalizeDescripcion(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/** Agrupa por tipo + descripción (sin comprador ni medidas). */
 function getQuoteGroupKey(entry: StockEntry): string {
-  switch (entry.type) {
-    case "telas":
-    case "guata":
-      return `${entry.type}|${entry.descripcion.toLowerCase()}|${entry.color.toLowerCase()}|${entry.anchoCm}|${entry.largoCm}`;
-    case "hilo":
-      return `${entry.type}|${entry.descripcion.toLowerCase()}|${entry.largoCm}`;
-    case "maderas":
-      return `${entry.type}|${entry.tipoMadera}|${entry.anchoCm}|${entry.largoCm}`;
-    case "cano":
-      return `${entry.type}|${entry.descripcion.toLowerCase()}|${entry.largoCm}`;
-    case "herramientas":
-      return `${entry.type}|${entry.descripcion.toLowerCase()}`;
+  return `${entry.type}|${normalizeDescripcion(getEntryDescripcion(entry))}`;
+}
+
+/** Precio unitario de cotización para un registro de stock. */
+export function getQuoteUnitPriceForEntry(entry: StockEntry): number {
+  if (isStockEntryWithCortes(entry)) {
+    const cm2 = getStockCm2(entry);
+    if (cm2 <= 0) return 0;
+    return calculateTotalPrice(entry) / cm2;
   }
+
+  return getUnitPrice(entry);
 }
 
-function weightedUnitPrice(entries: StockEntry[]): number {
-  const totalQuantity = entries.reduce((sum, entry) => sum + entry.quantity, 0);
-  if (totalQuantity <= 0) return getUnitPrice(entries[0]);
-
-  const totalCost = entries.reduce(
-    (sum, entry) => sum + calculateTotalPrice(entry),
-    0,
+function pickHighestPricedEntry(entries: StockEntry[]): StockEntry {
+  return entries.reduce((best, entry) =>
+    getQuoteUnitPriceForEntry(entry) > getQuoteUnitPriceForEntry(best)
+      ? entry
+      : best,
   );
-  return totalCost / totalQuantity;
-}
-
-function weightedUnitPricePerCm2(entries: StockEntry[]): number {
-  const areaEntries = entries.filter(isStockEntryWithCortes);
-  const totalCm2 = areaEntries.reduce(
-    (sum, entry) => sum + getStockCm2(entry),
-    0,
-  );
-  if (totalCm2 <= 0) return 0;
-
-  const totalCost = areaEntries.reduce(
-    (sum, entry) => sum + calculateTotalPrice(entry),
-    0,
-  );
-  return totalCost / totalCm2;
-}
-
-function weightedUnitPricePerCm(entries: StockEntry[]): number {
-  const canoEntries = entries.filter((entry) => entry.type === "cano");
-  const totalCm = canoEntries.reduce((sum, entry) => sum + entry.largoCm, 0);
-  if (totalCm <= 0) return 0;
-
-  const totalCost = canoEntries.reduce(
-    (sum, entry) => sum + calculateTotalPrice(entry),
-    0,
-  );
-  return totalCost / totalCm;
 }
 
 function resolveQuotePricing(
   sample: StockEntry,
   groupEntries: StockEntry[],
 ): Pick<QuoteProductOption, "unitPrice" | "quantityUnit"> {
+  const unitPrice = Math.max(
+    ...groupEntries.map((entry) => getQuoteUnitPriceForEntry(entry)),
+    0,
+  );
+
   if (sample.type === "telas" || sample.type === "maderas") {
-    return {
-      unitPrice: weightedUnitPricePerCm2(groupEntries),
-      quantityUnit: "cm²",
-    };
+    return { unitPrice, quantityUnit: "cm²" };
   }
 
   if (sample.type === "cano") {
-    return {
-      unitPrice: weightedUnitPricePerCm(groupEntries),
-      quantityUnit: "cm",
-    };
+    return { unitPrice, quantityUnit: "cm" };
   }
 
   if (isMeterBasedType(sample.type)) {
-    return {
-      unitPrice: weightedUnitPrice(groupEntries),
-      quantityUnit: "metros",
-    };
+    return { unitPrice, quantityUnit: "metros" };
   }
 
-  return {
-    unitPrice: weightedUnitPrice(groupEntries),
-    quantityUnit: "unidades",
-  };
+  return { unitPrice, quantityUnit: "unidades" };
 }
 
 export function buildQuoteProductOptions(
@@ -135,8 +102,8 @@ export function buildQuoteProductOptions(
 
   return Array.from(groups.entries())
     .map(([key, groupEntries]) => {
-      const sample = groupEntries[0];
-      const descripcion = getEntryDescripcion(sample);
+      const sample = pickHighestPricedEntry(groupEntries);
+      const descripcion = getEntryDescripcion(sample).trim();
       const details = formatEntryDetails(sample);
 
       const pricing = resolveQuotePricing(sample, groupEntries);
@@ -147,7 +114,7 @@ export function buildQuoteProductOptions(
         descripcion,
         materialLabel: MATERIAL_CONFIG[sample.type].label,
         details,
-        label: `${MATERIAL_CONFIG[sample.type].label} · ${details}`,
+        label: descripcion,
         ...pricing,
       };
     })
