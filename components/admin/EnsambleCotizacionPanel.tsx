@@ -17,6 +17,7 @@ import {
   piezasToQuoteLines,
 } from "@/lib/ensamble/piezas-to-quote-lines";
 import type { EnsambleCotizacionPrefs } from "@/lib/ensamble/types";
+import { useAdminTenant } from "@/lib/tenant/context";
 
 const inputClassName =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
@@ -51,6 +52,7 @@ export default function EnsambleCotizacionPanel({
   onMaterialesChange,
   onPrefsChange,
 }: EnsambleCotizacionPanelProps) {
+  const tenant = useAdminTenant();
   const prefs = cotizacionPrefs ?? DEFAULT_ENSAMBLE_COTIZACION_PREFS;
   const maderaProducts = useMemo(
     () => products.filter((p) => p.materialType === "maderas"),
@@ -158,7 +160,7 @@ export default function EnsambleCotizacionPanel({
         </h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           Se guarda junto al diseño en el mismo documento de Firebase (
-          <code className="text-xs">taller-ensambles</code>).
+          <code className="text-xs">{tenant.collections.ensambles}</code>).
         </p>
       </div>
 

@@ -39,6 +39,81 @@ async function getSessionFromRequest(request: NextRequest) {
   }
 }
 
+function protectAdminArea(
+  request: NextRequest,
+  session: Awaited<ReturnType<typeof getSessionFromRequest>>,
+) {
+  if (!session || !canReadStock(session.role)) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+  return NextResponse.next();
+}
+
+function protectMaterialsApi(
+  request: NextRequest,
+  session: Awaited<ReturnType<typeof getSessionFromRequest>>,
+) {
+  if (!session || !canReadStock(session.role)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const isWriteMethod =
+    request.method === "POST" ||
+    request.method === "PATCH" ||
+    request.method === "PUT" ||
+    request.method === "DELETE";
+
+  if (isWriteMethod && !canWriteStock(session)) {
+    return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
+  }
+
+  return null;
+}
+
+function protectCotizadorApi(
+  request: NextRequest,
+  session: Awaited<ReturnType<typeof getSessionFromRequest>>,
+) {
+  if (!session || !canReadStock(session.role)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const isWriteMethod =
+    request.method === "POST" ||
+    request.method === "PATCH" ||
+    request.method === "PUT" ||
+    request.method === "DELETE";
+
+  if (isWriteMethod && !canWriteCotizador(session)) {
+    return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
+  }
+
+  return null;
+}
+
+function protectEnsambleApi(
+  request: NextRequest,
+  session: Awaited<ReturnType<typeof getSessionFromRequest>>,
+) {
+  if (!session || !canReadStock(session.role)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const isWriteMethod =
+    request.method === "POST" ||
+    request.method === "PATCH" ||
+    request.method === "PUT" ||
+    request.method === "DELETE";
+
+  if (isWriteMethod && !canWriteEnsamble(session)) {
+    return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
+  }
+
+  return null;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = await getSessionFromRequest(request);
@@ -54,61 +129,36 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname.startsWith("/admin-fer")) {
+    return protectAdminArea(request, session);
+  }
+
   if (pathname.startsWith("/admin")) {
-    if (!session || !canReadStock(session.role)) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-    return NextResponse.next();
+    return protectAdminArea(request, session);
   }
 
-  if (pathname.startsWith("/api/materials")) {
-    if (!session || !canReadStock(session.role)) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    const isWriteMethod =
-      request.method === "POST" ||
-      request.method === "PATCH" ||
-      request.method === "PUT" ||
-      request.method === "DELETE";
-
-    if (isWriteMethod && !canWriteStock(session)) {
-      return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
-    }
+  if (
+    pathname.startsWith("/api/materials") ||
+    pathname.startsWith("/api/fer/materials")
+  ) {
+    const denied = protectMaterialsApi(request, session);
+    if (denied) return denied;
   }
 
-  if (pathname.startsWith("/api/cotizador")) {
-    if (!session || !canReadStock(session.role)) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    const isWriteMethod =
-      request.method === "POST" ||
-      request.method === "PATCH" ||
-      request.method === "PUT" ||
-      request.method === "DELETE";
-
-    if (isWriteMethod && !canWriteCotizador(session)) {
-      return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
-    }
+  if (
+    pathname.startsWith("/api/cotizador") ||
+    pathname.startsWith("/api/fer/cotizador")
+  ) {
+    const denied = protectCotizadorApi(request, session);
+    if (denied) return denied;
   }
 
-  if (pathname.startsWith("/api/ensamble")) {
-    if (!session || !canReadStock(session.role)) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    const isWriteMethod =
-      request.method === "POST" ||
-      request.method === "PATCH" ||
-      request.method === "PUT" ||
-      request.method === "DELETE";
-
-    if (isWriteMethod && !canWriteEnsamble(session)) {
-      return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
-    }
+  if (
+    pathname.startsWith("/api/ensamble") ||
+    pathname.startsWith("/api/fer/ensamble")
+  ) {
+    const denied = protectEnsambleApi(request, session);
+    if (denied) return denied;
   }
 
   return NextResponse.next();
@@ -118,9 +168,13 @@ export const config = {
   matcher: [
     "/",
     "/admin/:path*",
+    "/admin-fer/:path*",
     "/login",
     "/api/materials/:path*",
     "/api/cotizador/:path*",
     "/api/ensamble/:path*",
+    "/api/fer/materials/:path*",
+    "/api/fer/cotizador/:path*",
+    "/api/fer/ensamble/:path*",
   ],
 };

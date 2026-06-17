@@ -11,6 +11,7 @@ import type { Cotizacion } from "@/lib/cotizador/types";
 import type { Ensamble } from "@/lib/ensamble/types";
 import type { CommittedQuoteLine } from "@/lib/materials/quote-line";
 import type { StockEntry } from "@/lib/materials/types";
+import { useTenantPaths } from "@/lib/tenant/context";
 
 const DRAFT_ID = "__draft__";
 
@@ -42,6 +43,7 @@ export default function Cotizador({
   canWrite,
   currentUsername,
 }: CotizadorProps) {
+  const { basePath, cotizadorApi, path } = useTenantPaths();
   const products = useMemo(
     () => buildQuoteProductOptions(initialEntries),
     [initialEntries],
@@ -179,7 +181,7 @@ export default function Cotizador({
 
     try {
       if (isDraft) {
-        const response = await fetch("/api/cotizador", {
+        const response = await fetch(cotizadorApi, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -198,7 +200,7 @@ export default function Cotizador({
         return;
       }
 
-      const response = await fetch(`/api/cotizador/${selected.id}`, {
+      const response = await fetch(`${cotizadorApi}/${selected.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -248,7 +250,7 @@ export default function Cotizador({
     setError(null);
 
     try {
-      const response = await fetch(`/api/cotizador/${selected.id}`, {
+      const response = await fetch(`${cotizadorApi}/${selected.id}`, {
         method: "DELETE",
       });
 
@@ -274,7 +276,7 @@ export default function Cotizador({
     <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
       <header>
         <Link
-          href="/admin"
+          href={basePath}
           className="text-sm font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
         >
           ← Volver al panel
@@ -303,7 +305,7 @@ export default function Cotizador({
       {products.length === 0 ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center text-zinc-500 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
           No hay productos en stock todavía.{" "}
-          <Link href="/admin/stock" className="font-medium text-amber-700">
+          <Link href={path("stock")} className="font-medium text-amber-700">
             Cargá stock
           </Link>{" "}
           para usar el cotizador.

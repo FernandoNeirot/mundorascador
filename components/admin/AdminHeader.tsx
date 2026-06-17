@@ -5,12 +5,14 @@ import { startPageNavigation } from "@/lib/navigation-loading";
 import { usePathname, useRouter } from "next/navigation";
 import { getDisplayUsername } from "@/lib/auth/display";
 import type { SessionUser } from "@/lib/auth/types";
+import { adminPath } from "@/lib/tenant/config";
+import { useAdminTenant } from "@/lib/tenant/context";
 
-const NAV_LINKS = [
-  { href: "/admin/stock", label: "Ver stock" },
-  { href: "/admin/cotizador", label: "Cotizador" },
-  { href: "/admin/optimizador", label: "Optimizador" },
-  { href: "/admin/ensamble", label: "Ensamble" },
+const NAV_SEGMENTS = [
+  { segment: "stock", label: "Ver stock" },
+  { segment: "cotizador", label: "Cotizador" },
+  { segment: "optimizador", label: "Optimizador" },
+  { segment: "ensamble", label: "Ensamble" },
 ] as const;
 
 const linkClassName =
@@ -26,6 +28,12 @@ function isActivePath(pathname: string, href: string): boolean {
 export default function AdminHeader({ user }: { user: SessionUser }) {
   const router = useRouter();
   const pathname = usePathname();
+  const tenant = useAdminTenant();
+
+  const navLinks = NAV_SEGMENTS.map((link) => ({
+    href: adminPath(tenant.basePath, link.segment),
+    label: link.label,
+  }));
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -38,14 +46,14 @@ export default function AdminHeader({ user }: { user: SessionUser }) {
     <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
         <Link
-          href="/admin"
+          href={tenant.basePath}
           className="shrink-0 text-sm font-semibold text-zinc-900 transition hover:text-amber-800 dark:text-zinc-50 dark:hover:text-amber-400"
         >
-          Taller carpintería
+          {tenant.title}
         </Link>
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
           <nav className="hidden items-center gap-1 sm:flex">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -76,7 +84,7 @@ export default function AdminHeader({ user }: { user: SessionUser }) {
         aria-label="Administración"
         className="mx-auto flex w-full max-w-5xl gap-1 overflow-x-auto px-4 pb-3 sm:hidden"
       >
-        {NAV_LINKS.map((link) => (
+        {navLinks.map((link) => (
           <Link
             key={link.href}
             href={link.href}

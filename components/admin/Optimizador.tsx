@@ -14,6 +14,7 @@ import {
   FABRIC_LATERAL_OVERHANG_CM,
   suggestedFabricCutForWood,
 } from "@/lib/materials/wood-fabric-quote";
+import { useTenantPaths } from "@/lib/tenant/context";
 
 const inputClassName =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
@@ -126,6 +127,7 @@ function parseCuts(
 }
 
 export default function Optimizador() {
+  const { basePath } = useTenantPaths();
   const [materialType, setMaterialType] =
     useState<OptimizerMaterialType>("maderas");
   const [sheetAnchoCm, setSheetAnchoCm] = useState("");
@@ -193,7 +195,7 @@ export default function Optimizador() {
     <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
       <header>
         <Link
-          href="/admin"
+          href={basePath}
           className="text-sm font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
         >
           ← Volver al panel

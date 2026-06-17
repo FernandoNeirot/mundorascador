@@ -32,6 +32,7 @@ import type {
   StockEntryWithCortes,
   WoodType,
 } from "@/lib/materials/types";
+import { useTenantPaths } from "@/lib/tenant/context";
 import CortesStockDialog from "@/components/admin/CortesStockDialog";
 import PriceFieldWithCalculator from "@/components/admin/PriceFieldWithCalculator";
 
@@ -54,6 +55,7 @@ export default function EditStockDialog({
   onClose,
   onSaved,
 }: EditStockDialogProps) {
+  const { materialsApi } = useTenantPaths();
   const [editType, setEditType] = useState<MaterialType>("telas");
   const [compradoPor, setCompradoPor] = useState<BuyerType>("fernando");
   const [quantity, setQuantity] = useState("");
@@ -337,7 +339,7 @@ export default function EditStockDialog({
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/materials/${entry.id}`, {
+      const response = await fetch(`${materialsApi}/${entry.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

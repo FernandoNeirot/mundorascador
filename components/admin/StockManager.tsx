@@ -5,6 +5,7 @@ import Link from "next/link";
 import AddStockDialog from "@/components/admin/AddStockDialog";
 import StockInventoryTable from "@/components/admin/StockInventoryTable";
 import type { StockEntry } from "@/lib/materials/types";
+import { useTenantPaths } from "@/lib/tenant/context";
 
 export default function StockManager({
   initialEntries,
@@ -13,17 +14,18 @@ export default function StockManager({
   initialEntries: StockEntry[];
   canWrite: boolean;
 }) {
+  const { basePath, materialsApi } = useTenantPaths();
   const [entries, setEntries] = useState(initialEntries);
   const [addOpen, setAddOpen] = useState(false);
   const [duplicateFrom, setDuplicateFrom] = useState<StockEntry | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const refreshEntries = useCallback(async () => {
-    const response = await fetch("/api/materials");
+    const response = await fetch(materialsApi);
     if (response.ok) {
       setEntries(await response.json());
     }
-  }, []);
+  }, [materialsApi]);
 
   useEffect(() => {
     if (!success) return;
@@ -55,7 +57,7 @@ export default function StockManager({
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-10">
       <header>
         <Link
-          href="/admin"
+          href={basePath}
           className="text-sm font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
         >
           ← Volver al panel

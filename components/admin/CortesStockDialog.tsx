@@ -14,6 +14,7 @@ import { formatEntryDetails } from "@/lib/materials/format";
 import { MATERIAL_CONFIG } from "@/lib/materials/constants";
 import { formatSuperficieCm2 } from "@/lib/materials/superficie";
 import type { StockCorte, StockEntryWithCortes } from "@/lib/materials/types";
+import { useTenantPaths } from "@/lib/tenant/context";
 
 const inputClassName =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
@@ -85,6 +86,7 @@ export default function CortesStockDialog({
   onClose,
   onSaved,
 }: CortesStockDialogProps) {
+  const { materialsApi } = useTenantPaths();
   const [drafts, setDrafts] = useState<DraftCorte[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,7 +154,7 @@ export default function CortesStockDialog({
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/materials/${entry.id}`, {
+      const response = await fetch(`${materialsApi}/${entry.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildCortesUpdatePayload(entry, parsed)),

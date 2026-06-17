@@ -1,29 +1,19 @@
-import Link from "next/link";
+"use client";
 
-const actions = [
-  {
-    href: "/admin/stock",
-    title: "Ver stock",
-    description: "Consultá el inventario y cargá materiales.",
-  },
-  {
-    href: "/admin/cotizador",
-    title: "Cotizador",
-    description: "Armá presupuestos con los productos del stock.",
-  },
-  {
-    href: "/admin/optimizador",
-    title: "Optimizador",
-    description: "Simulá cortes en una placa para reducir desperdicio.",
-  },
-  {
-    href: "/admin/ensamble",
-    title: "Ensamble",
-    description: "Esquema de rascadores: piso, columnas y casita.",
-  },
+import Link from "next/link";
+import { adminPath } from "@/lib/tenant/config";
+import { useAdminTenant } from "@/lib/tenant/context";
+
+const MODULES = [
+  { segment: "stock", title: "Ver stock", description: "Consultá el inventario y cargá materiales." },
+  { segment: "cotizador", title: "Cotizador", description: "Armá presupuestos con los productos del stock." },
+  { segment: "optimizador", title: "Optimizador", description: "Simulá cortes en una placa para reducir desperdicio." },
+  { segment: "ensamble", title: "Ensamble", description: "Esquema de rascadores: piso, columnas y casita." },
 ] as const;
 
 export default function AdminDashboard() {
+  const tenant = useAdminTenant();
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-10">
       <header>
@@ -39,10 +29,10 @@ export default function AdminDashboard() {
       </header>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        {actions.map((action) => (
+        {MODULES.map((action) => (
           <Link
-            key={action.href}
-            href={action.href}
+            key={action.segment}
+            href={adminPath(tenant.basePath, action.segment)}
             className="group rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:border-amber-600/40 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-amber-500/40"
           >
             <h2 className="text-lg font-medium text-zinc-900 group-hover:text-amber-800 dark:text-zinc-50 dark:group-hover:text-amber-400">

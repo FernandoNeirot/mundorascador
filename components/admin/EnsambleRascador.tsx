@@ -12,6 +12,7 @@ import { DEFAULT_ENSAMBLE_COTIZACION_PREFS } from "@/lib/ensamble/cotizacion-pre
 import type { EnsambleCotizacionPrefs } from "@/lib/ensamble/types";
 import type { CommittedQuoteLine } from "@/lib/materials/quote-line";
 import type { StockEntry } from "@/lib/materials/types";
+import { useTenantPaths } from "@/lib/tenant/context";
 import {
   computeRascadorEnsamble,
   configToDraftPisos,
@@ -636,6 +637,7 @@ export default function EnsambleRascador({
   createdBy,
 }: EnsambleRascadorProps) {
   const router = useRouter();
+  const { ensambleApi, path } = useTenantPaths();
   const [nombre, setNombre] = useState(initialConfig.nombre);
   const [pisosDraft, setPisosDraft] = useState<PisoNivelDraft[]>(() =>
     normalizeDraftPisos(configToDraftPisos(initialConfig)),
@@ -776,7 +778,7 @@ export default function EnsambleRascador({
 
     try {
       if (mode === "create") {
-        const response = await fetch("/api/ensamble", {
+        const response = await fetch(ensambleApi, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -787,14 +789,14 @@ export default function EnsambleRascador({
           return;
         }
         startPageNavigation();
-        router.push(`/admin/ensamble/${data.id}`);
+        router.push(path("ensamble", data.id));
         router.refresh();
         return;
       }
 
       if (!ensambleId) return;
 
-      const response = await fetch(`/api/ensamble/${ensambleId}`, {
+      const response = await fetch(`${ensambleApi}/${ensambleId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -822,7 +824,7 @@ export default function EnsambleRascador({
     setError(null);
 
     try {
-      const response = await fetch(`/api/ensamble/${ensambleId}`, {
+      const response = await fetch(`${ensambleApi}/${ensambleId}`, {
         method: "DELETE",
       });
       const data = await response.json();
@@ -831,7 +833,7 @@ export default function EnsambleRascador({
         return;
       }
       startPageNavigation();
-      router.push("/admin/ensamble");
+      router.push(path("ensamble"));
       router.refresh();
     } finally {
       setDeleting(false);
@@ -849,7 +851,7 @@ export default function EnsambleRascador({
     <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
       <header>
         <Link
-          href="/admin/ensamble"
+          href={path("ensamble")}
           className="text-sm font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
         >
           ← Ensambles
@@ -1230,7 +1232,7 @@ export default function EnsambleRascador({
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             No hay productos en stock marcados para cotizador.{" "}
             <Link
-              href="/admin/stock"
+              href={path("stock")}
               className="font-medium text-amber-700 dark:text-amber-400"
             >
               Cargá stock

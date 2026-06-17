@@ -17,11 +17,7 @@ import type {
   UpdateEnsambleInput,
 } from "./types";
 
-const COLLECTION = "taller-ensambles";
-
-function getCollection() {
-  return getFirestore(getFirebaseAdmin()).collection(COLLECTION);
-}
+export type EnsambleStorage = ReturnType<typeof createEnsambleStorage>;
 
 function docToEnsamble(id: string, data: DocumentData): Ensamble | null {
   if (!data || typeof data !== "object") return null;
@@ -50,100 +46,122 @@ function docToEnsamble(id: string, data: DocumentData): Ensamble | null {
   };
 }
 
-export async function getEnsambles(): Promise<Ensamble[]> {
-  const snapshot = await getCollection().get();
-  const items = snapshot.docs
-    .map((doc) => {
-      const data = doc.data();
-      return data ? docToEnsamble(doc.id, data) : null;
-    })
-    .filter((item): item is Ensamble => item !== null);
+export function createEnsambleStorage(collectionName: string) {
+  function getCollection() {
+    return getFirestore(getFirebaseAdmin()).collection(collectionName);
+  }
 
-  return items.sort(
-    (a, b) =>
-      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-  );
-}
+  async function getEnsambles(): Promise<Ensamble[]> {
+    const snapshot = await getCollection().get();
+    const items = snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        return data ? docToEnsamble(doc.id, data) : null;
+      })
+      .filter((item): item is Ensamble => item !== null);
 
-export async function getEnsambleById(id: string): Promise<Ensamble | null> {
-  const doc = await getCollection().doc(id).get();
-  if (!doc.exists) return null;
-  const data = doc.data();
-  if (!data) return null;
-  return docToEnsamble(doc.id, data);
-}
+    return items.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }
 
-export async function addEnsamble(
-  input: CreateEnsambleInput,
-  createdBy: string,
-): Promise<Ensamble> {
-  const now = new Date().toISOString();
-  const tipo: EnsambleTipo = input.tipo ?? "rascador-gatos";
-  const config = normalizeConfigPisosOrder(
-    input.config ?? EMPTY_RASCADOR_CONFIG,
-  );
-  const materialesInput = parseMateriales(input.materiales ?? []);
-  const materiales =
-    typeof materialesInput === "string" ? [] : materialesInput;
+  async function getEnsambleById(id: string): Promise<Ensamble | null> {
+    const doc = await getCollection().doc(id).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    if (!data) return null;
+    return docToEnsamble(doc.id, data);
+  }
 
-  const ensamble: Ensamble = {
-    id: crypto.randomUUID(),
-    tipo,
-    config,
-    descripcion: input.descripcion?.trim() ?? "",
-    materiales,
-    cotizacionPrefs: normalizeEnsambleCotizacionPrefs(
-      input.cotizacionPrefs ?? DEFAULT_ENSAMBLE_COTIZACION_PREFS,
-    ),
-    createdAt: now,
-    updatedAt: now,
-    createdBy,
+  async function addEnsamble(
+    input: CreateEnsambleInput,
+    createdBy: string,
+  ): Promise<Ensamble> {
+    const now = new Date().toISOString();
+    const tipo: EnsambleTipo = input.tipo ?? "rascador-gatos";
+    const config = normalizeConfigPisosOrder(
+      input.config ?? EMPTY_RASCADOR_CONFIG,
+    );
+    const materialesInput = parseMateriales(input.materiales ?? []);
+    const materiales =
+      typeof materialesInput === "string" ? [] : materialesInput;
+
+    const ensamble: Ensamble = {
+      id: crypto.randomUUID(),
+      tipo,
+      config,
+      descripcion: input.descripcion?.trim() ?? "",
+      materiales,
+      cotizacionPrefs: normalizeEnsambleCotizacionPrefs(
+        input.cotizacionPrefs ?? DEFAULT_ENSAMBLE_COTIZACION_PREFS,
+      ),
+      createdAt: now,
+      updatedAt: now,
+      createdBy,
+    };
+
+    await getCollection().doc(ensamble.id).set(ensamble);
+    return ensamble;
+  }
+
+  async function updateEnsamble(
+    id: string,
+    input: UpdateEnsambleInput,
+  ): Promise<Ensamble | null> {
+    const existing = await getEnsambleById(id);
+    if (!existing) return null;
+
+    const materiales =
+      input.materiales === undefined
+        ? existing.materiales
+        : (() => {
+            const parsed = parseMateriales(input.materiales);
+            return typeof parsed === "string" ? existing.materiales : parsed;
+          })();
+
+    const updated: Ensamble = {
+      ...existing,
+      config: input.config
+        ? normalizeConfigPisosOrder(input.config)
+        : existing.config,
+      descripcion:
+        input.descripcion !== undefined
+          ? input.descripcion.trim()
+          : existing.descripcion,
+      materiales,
+      cotizacionPrefs:
+        input.cotizacionPrefs !== undefined
+          ? normalizeEnsambleCotizacionPrefs(input.cotizacionPrefs)
+          : existing.cotizacionPrefs,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await getCollection().doc(id).set(updated);
+    return updated;
+  }
+
+  async function deleteEnsamble(id: string): Promise<boolean> {
+    const existing = await getEnsambleById(id);
+    if (!existing) return false;
+
+    await getCollection().doc(id).delete();
+    return true;
+  }
+
+  return {
+    getEnsambles,
+    getEnsambleById,
+    addEnsamble,
+    updateEnsamble,
+    deleteEnsamble,
   };
-
-  await getCollection().doc(ensamble.id).set(ensamble);
-  return ensamble;
 }
 
-export async function updateEnsamble(
-  id: string,
-  input: UpdateEnsambleInput,
-): Promise<Ensamble | null> {
-  const existing = await getEnsambleById(id);
-  if (!existing) return null;
+const defaultStorage = createEnsambleStorage("taller-ensambles");
 
-  const materiales =
-    input.materiales === undefined
-      ? existing.materiales
-      : (() => {
-          const parsed = parseMateriales(input.materiales);
-          return typeof parsed === "string" ? existing.materiales : parsed;
-        })();
-
-  const updated: Ensamble = {
-    ...existing,
-    config: input.config
-      ? normalizeConfigPisosOrder(input.config)
-      : existing.config,
-    descripcion:
-      input.descripcion !== undefined
-        ? input.descripcion.trim()
-        : existing.descripcion,
-    materiales,
-    cotizacionPrefs:
-      input.cotizacionPrefs !== undefined
-        ? normalizeEnsambleCotizacionPrefs(input.cotizacionPrefs)
-        : existing.cotizacionPrefs,
-    updatedAt: new Date().toISOString(),
-  };
-
-  await getCollection().doc(id).set(updated);
-  return updated;
-}
-
-export async function deleteEnsamble(id: string): Promise<boolean> {
-  const existing = await getEnsambleById(id);
-  if (!existing) return false;
-
-  await getCollection().doc(id).delete();
-  return true;
-}
+export const getEnsambles = defaultStorage.getEnsambles;
+export const getEnsambleById = defaultStorage.getEnsambleById;
+export const addEnsamble = defaultStorage.addEnsamble;
+export const updateEnsamble = defaultStorage.updateEnsamble;
+export const deleteEnsamble = defaultStorage.deleteEnsamble;

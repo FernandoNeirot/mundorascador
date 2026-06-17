@@ -15,6 +15,7 @@ import { formatQuantityFromLength, isValidLengthCm, quantityFromLengthCm } from 
 import { formatSuperficieCm2Preview } from "@/lib/materials/superficie";
 import PriceFieldWithCalculator from "@/components/admin/PriceFieldWithCalculator";
 import type { BuyerType, MaterialType, StockEntry, WoodType } from "@/lib/materials/types";
+import { useTenantPaths } from "@/lib/tenant/context";
 
 const inputClassName =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
@@ -173,6 +174,7 @@ export default function AddStockDialog({
   onClose,
   onSaved,
 }: AddStockDialogProps) {
+  const { materialsApi } = useTenantPaths();
   const [esHerramienta, setEsHerramienta] = useState(false);
   const [type, setType] = useState<MaterialType>("telas");
   const [compradoPor, setCompradoPor] = useState<BuyerType>("fernando");
@@ -362,7 +364,7 @@ export default function AddStockDialog({
 
     setLoading(true);
     try {
-      const response = await fetch("/api/materials", {
+      const response = await fetch(materialsApi, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

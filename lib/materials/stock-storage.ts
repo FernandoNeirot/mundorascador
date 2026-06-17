@@ -6,11 +6,12 @@ import type { WoodType } from "./types";
 import { superficieCm2FromDimensions } from "./superficie";
 import type { CreateStockEntryInput, MaterialType, StockEntry } from "./types";
 
-const COLLECTION = "taller-stock";
+export type StockStorage = ReturnType<typeof createStockStorage>;
 
-function getCollection() {
-  return getFirestore(getFirebaseAdmin()).collection(COLLECTION);
-}
+export function createStockStorage(collectionName: string) {
+  function getCollection() {
+    return getFirestore(getFirebaseAdmin()).collection(collectionName);
+  }
 
 function buildEntry(
   id: string,
@@ -215,50 +216,64 @@ function docToEntry(id: string, data: DocumentData): StockEntry | null {
   return isValidStockEntry(entry) ? entry : null;
 }
 
-export async function getStockEntries(): Promise<StockEntry[]> {
-  const snapshot = await getCollection().get();
-  const entries = snapshot.docs
-    .map((doc) => {
-      const data = doc.data();
-      return data ? docToEntry(doc.id, data) : null;
-    })
-    .filter((entry): entry is StockEntry => entry !== null);
+  async function getStockEntries(): Promise<StockEntry[]> {
+    const snapshot = await getCollection().get();
+    const entries = snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        return data ? docToEntry(doc.id, data) : null;
+      })
+      .filter((entry): entry is StockEntry => entry !== null);
 
-  return entries.sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-  );
+    return entries.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }
+
+  async function getStockEntryById(id: string): Promise<StockEntry | null> {
+    const doc = await getCollection().doc(id).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    if (!data) return null;
+    return docToEntry(doc.id, data);
+  }
+
+  async function addStockEntry(
+    input: CreateStockEntryInput,
+  ): Promise<StockEntry> {
+    const newEntry = buildEntry(
+      crypto.randomUUID(),
+      input,
+      new Date().toISOString(),
+    );
+    await getCollection().doc(newEntry.id).set(newEntry);
+    return newEntry;
+  }
+
+  async function updateStockEntry(
+    id: string,
+    input: CreateStockEntryInput,
+  ): Promise<StockEntry | null> {
+    const existing = await getStockEntryById(id);
+    if (!existing) return null;
+
+    const updated = buildEntry(id, input, new Date().toISOString());
+    await getCollection().doc(id).set(updated);
+    return updated;
+  }
+
+  return {
+    getStockEntries,
+    getStockEntryById,
+    addStockEntry,
+    updateStockEntry,
+  };
 }
 
-export async function getStockEntryById(
-  id: string,
-): Promise<StockEntry | null> {
-  const doc = await getCollection().doc(id).get();
-  if (!doc.exists) return null;
-  const data = doc.data();
-  if (!data) return null;
-  return docToEntry(doc.id, data);
-}
+const defaultStorage = createStockStorage("taller-stock");
 
-export async function addStockEntry(
-  input: CreateStockEntryInput,
-): Promise<StockEntry> {
-  const newEntry = buildEntry(
-    crypto.randomUUID(),
-    input,
-    new Date().toISOString(),
-  );
-  await getCollection().doc(newEntry.id).set(newEntry);
-  return newEntry;
-}
-
-export async function updateStockEntry(
-  id: string,
-  input: CreateStockEntryInput,
-): Promise<StockEntry | null> {
-  const existing = await getStockEntryById(id);
-  if (!existing) return null;
-
-  const updated = buildEntry(id, input, new Date().toISOString());
-  await getCollection().doc(id).set(updated);
-  return updated;
-}
+export const getStockEntries = defaultStorage.getStockEntries;
+export const getStockEntryById = defaultStorage.getStockEntryById;
+export const addStockEntry = defaultStorage.addStockEntry;
+export const updateStockEntry = defaultStorage.updateStockEntry;

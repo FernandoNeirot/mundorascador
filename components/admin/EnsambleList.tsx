@@ -5,6 +5,7 @@ import { getDisplayUsername } from "@/lib/auth/display";
 import { computeRascadorEnsamble } from "@/lib/ensamble/cat-scratcher";
 import { isEnsambleOwnedBy } from "@/lib/ensamble/permissions";
 import type { Ensamble } from "@/lib/ensamble/types";
+import { useTenantPaths } from "@/lib/tenant/context";
 
 type EnsambleListProps = {
   ensambles: Ensamble[];
@@ -32,6 +33,8 @@ export default function EnsambleList({
   canWrite,
   currentUsername,
 }: EnsambleListProps) {
+  const { path } = useTenantPaths();
+
   return (
     <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="flex flex-col gap-3 border-b border-zinc-200 px-6 py-4 dark:border-zinc-800 sm:flex-row sm:items-center sm:justify-between">
@@ -46,7 +49,7 @@ export default function EnsambleList({
         </div>
         {canWrite && (
           <Link
-            href="/admin/ensamble/nuevo"
+            href={path("ensamble", "nuevo")}
             className="inline-flex h-10 items-center justify-center rounded-lg bg-amber-700 px-4 text-sm font-medium text-white transition hover:bg-amber-800"
           >
             Nuevo ensamble
@@ -123,7 +126,7 @@ export default function EnsambleList({
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right">
                       <Link
-                        href={`/admin/ensamble/${ensamble.id}`}
+                        href={path("ensamble", ensamble.id)}
                         className="text-sm font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400"
                       >
                         Abrir

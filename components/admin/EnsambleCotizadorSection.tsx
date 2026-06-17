@@ -7,6 +7,7 @@ import { formatPrice } from "@/lib/materials/format";
 import type { QuoteProductOption } from "@/lib/materials/quote-products";
 import { computeRascadorEnsamble } from "@/lib/ensamble/cat-scratcher";
 import type { Ensamble } from "@/lib/ensamble/types";
+import { useTenantPaths } from "@/lib/tenant/context";
 
 type EnsambleCotizadorSectionProps = {
   ensambles: Ensamble[];
@@ -21,6 +22,7 @@ export default function EnsambleCotizadorSection({
   canWrite,
   currentUsername,
 }: EnsambleCotizadorSectionProps) {
+  const { path } = useTenantPaths();
   const rows = useMemo(() => {
     return ensambles.map((ensamble) => {
       const computed = computeRascadorEnsamble(ensamble.config);
@@ -56,7 +58,7 @@ export default function EnsambleCotizadorSection({
         </div>
         {canWrite && (
           <Link
-            href="/admin/ensamble/nuevo"
+            href={path("ensamble", "nuevo")}
             className="inline-flex h-10 items-center justify-center rounded-lg bg-violet-700 px-4 text-sm font-medium text-white transition hover:bg-violet-800"
           >
             Nuevo ensamble
@@ -85,7 +87,7 @@ export default function EnsambleCotizadorSection({
               </p>
             </div>
             <Link
-              href={`/admin/ensamble/${ensamble.id}`}
+              href={path("ensamble", ensamble.id)}
               className={`text-sm font-medium ${
                 canOpen
                   ? "text-violet-700 hover:underline dark:text-violet-400"
