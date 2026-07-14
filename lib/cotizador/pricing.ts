@@ -28,6 +28,69 @@ function clampPct(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
 
+function roundPct(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** Reinversión + ganancia siempre suman 100%. */
+export function complementaryMarginPcts(
+  changed: "reinversion" | "ganancia",
+  value: number,
+): Pick<CotizacionPricing, "reinversionPct" | "gananciaPct"> {
+  const v = clampPct(value);
+  const complement = roundPct(100 - v);
+  if (changed === "reinversion") {
+    return { reinversionPct: v, gananciaPct: complement };
+  }
+  return { gananciaPct: v, reinversionPct: complement };
+}
+
+/**
+ * Fernando + Chino + Flavio siempre suman 100%.
+ * Al cambiar uno se completa el "resto" (Flavio, o Chino si se edita Flavio).
+ */
+export function complementarySharePcts(
+  changed: "fernando" | "chino" | "flavio",
+  value: number,
+  current: CotizacionPricing,
+): Pick<
+  CotizacionPricing,
+  "gananciaFernandoPct" | "gananciaChinoPct" | "gananciaFlavioPct"
+> {
+  const v = clampPct(value);
+
+  if (changed === "fernando") {
+    const chino = Math.min(clampPct(current.gananciaChinoPct), roundPct(100 - v));
+    return {
+      gananciaFernandoPct: v,
+      gananciaChinoPct: chino,
+      gananciaFlavioPct: roundPct(100 - v - chino),
+    };
+  }
+
+  if (changed === "chino") {
+    const fernando = Math.min(
+      clampPct(current.gananciaFernandoPct),
+      roundPct(100 - v),
+    );
+    return {
+      gananciaFernandoPct: fernando,
+      gananciaChinoPct: v,
+      gananciaFlavioPct: roundPct(100 - fernando - v),
+    };
+  }
+
+  const fernando = Math.min(
+    clampPct(current.gananciaFernandoPct),
+    roundPct(100 - v),
+  );
+  return {
+    gananciaFernandoPct: fernando,
+    gananciaChinoPct: roundPct(100 - fernando - v),
+    gananciaFlavioPct: v,
+  };
+}
+
 function nonNegativeMoney(value: number): number {
   if (!Number.isFinite(value) || value < 0) return 0;
   return value;

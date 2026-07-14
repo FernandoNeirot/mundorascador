@@ -2,9 +2,14 @@
 
 import { useMemo, useState } from "react";
 import AddQuoteLineDialog from "@/components/admin/AddQuoteLineDialog";
+import MoneyInput from "@/components/admin/MoneyInput";
 import QuoteLinesTable from "@/components/admin/QuoteLinesTable";
 import { getMaterialesTotal } from "@/components/admin/CotizacionList";
-import { computeCotizacionPricingBreakdown } from "@/lib/cotizador/pricing";
+import {
+  complementaryMarginPcts,
+  complementarySharePcts,
+  computeCotizacionPricingBreakdown,
+} from "@/lib/cotizador/pricing";
 import type { Cotizacion, CotizacionPricing } from "@/lib/cotizador/types";
 import { formatPrice } from "@/lib/materials/format";
 import {
@@ -41,12 +46,6 @@ type CotizacionEditorProps = {
   onClose?: () => void;
   inModal?: boolean;
 };
-
-function parseMoneyInput(value: string): number {
-  const cleaned = value.replace(/,/g, ".").replace(/[^\d.]/g, "");
-  const n = Number(cleaned);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-}
 
 function parsePctInput(value: string): number {
   const n = Number(value.replace(/,/g, "."));
@@ -97,6 +96,30 @@ export default function CotizacionEditor({
 
   const patchPricing = (patch: Partial<CotizacionPricing>) => {
     onPricingChange({ ...pricing, ...patch });
+  };
+
+  const setReinversionPct = (value: number) => {
+    onPricingChange({
+      ...pricing,
+      ...complementaryMarginPcts("reinversion", value),
+    });
+  };
+
+  const setGananciaPct = (value: number) => {
+    onPricingChange({
+      ...pricing,
+      ...complementaryMarginPcts("ganancia", value),
+    });
+  };
+
+  const setSharePct = (
+    changed: "fernando" | "chino" | "flavio",
+    value: number,
+  ) => {
+    onPricingChange({
+      ...pricing,
+      ...complementarySharePcts(changed, value, pricing),
+    });
   };
 
   const removeLinesFromQuote = (ids: Set<string>) => {
@@ -305,14 +328,9 @@ export default function CotizacionEditor({
         </label>
         <label className={labelClassName}>
           Precio mínimo
-          <input
-            type="number"
-            min={0}
-            step={0.01}
-            value={pricing.precioMinimo || ""}
-            onChange={(event) =>
-              patchPricing({ precioMinimo: parseMoneyInput(event.target.value) })
-            }
+          <MoneyInput
+            value={pricing.precioMinimo}
+            onChange={(precioMinimo) => patchPricing({ precioMinimo })}
             readOnly={!canWrite}
             placeholder="0"
             className={inputClassName}
@@ -320,14 +338,9 @@ export default function CotizacionEditor({
         </label>
         <label className={labelClassName}>
           Precio venta
-          <input
-            type="number"
-            min={0}
-            step={0.01}
-            value={pricing.precioVenta || ""}
-            onChange={(event) =>
-              patchPricing({ precioVenta: parseMoneyInput(event.target.value) })
-            }
+          <MoneyInput
+            value={pricing.precioVenta}
+            onChange={(precioVenta) => patchPricing({ precioVenta })}
             readOnly={!canWrite}
             placeholder="0"
             className={inputClassName}
@@ -342,14 +355,15 @@ export default function CotizacionEditor({
             step={0.01}
             value={pricing.reinversionPct || ""}
             onChange={(event) =>
-              patchPricing({
-                reinversionPct: parsePctInput(event.target.value),
-              })
+              setReinversionPct(parsePctInput(event.target.value))
             }
             readOnly={!canWrite}
             placeholder="0"
             className={inputClassName}
           />
+          <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
+            Con % ganancia suma 100%.
+          </span>
         </label>
         <label className={labelClassName}>
           % Ganancia
@@ -360,16 +374,22 @@ export default function CotizacionEditor({
             step={0.01}
             value={pricing.gananciaPct || ""}
             onChange={(event) =>
-              patchPricing({ gananciaPct: parsePctInput(event.target.value) })
+              setGananciaPct(parsePctInput(event.target.value))
             }
             readOnly={!canWrite}
             placeholder="0"
             className={inputClassName}
           />
+          <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
+            Se completa con el complemento de reinversión.
+          </span>
         </label>
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <p className="text-xs text-zinc-500 sm:col-span-3 dark:text-zinc-400">
+          % Fernando + Chino + Flavio = 100%. Al completar uno se ajusta el resto.
+        </p>
         <label className={labelClassName}>
           % Ganancia Fernando
           <input
@@ -379,9 +399,7 @@ export default function CotizacionEditor({
             step={0.01}
             value={pricing.gananciaFernandoPct || ""}
             onChange={(event) =>
-              patchPricing({
-                gananciaFernandoPct: parsePctInput(event.target.value),
-              })
+              setSharePct("fernando", parsePctInput(event.target.value))
             }
             readOnly={!canWrite}
             placeholder="0"
@@ -397,9 +415,7 @@ export default function CotizacionEditor({
             step={0.01}
             value={pricing.gananciaChinoPct || ""}
             onChange={(event) =>
-              patchPricing({
-                gananciaChinoPct: parsePctInput(event.target.value),
-              })
+              setSharePct("chino", parsePctInput(event.target.value))
             }
             readOnly={!canWrite}
             placeholder="0"
@@ -415,9 +431,7 @@ export default function CotizacionEditor({
             step={0.01}
             value={pricing.gananciaFlavioPct || ""}
             onChange={(event) =>
-              patchPricing({
-                gananciaFlavioPct: parsePctInput(event.target.value),
-              })
+              setSharePct("flavio", parsePctInput(event.target.value))
             }
             readOnly={!canWrite}
             placeholder="0"
