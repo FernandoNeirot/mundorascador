@@ -1,4 +1,4 @@
-import type { CotizacionPricing } from "./types";
+import type { CotizacionPricing, CotizacionPricingResumen } from "./types";
 
 export const DEFAULT_COTIZACION_PRICING: CotizacionPricing = {
   precioMinimo: 0,
@@ -8,6 +8,17 @@ export const DEFAULT_COTIZACION_PRICING: CotizacionPricing = {
   gananciaFernandoPct: 0,
   gananciaChinoPct: 0,
   gananciaFlavioPct: 0,
+};
+
+export const DEFAULT_COTIZACION_PRICING_RESUMEN: CotizacionPricingResumen = {
+  precioCosto: 0,
+  precioMinimo: 0,
+  precioVenta: 0,
+  reinversionMonto: 0,
+  gananciaMonto: 0,
+  gananciaFernando: 0,
+  gananciaChino: 0,
+  gananciaFlavio: 0,
 };
 
 export type CotizacionPricingBreakdown = {
@@ -143,5 +154,45 @@ export function computeCotizacionPricingBreakdown(
       gananciaMonto * (clampPct(pricing.gananciaFernandoPct) / 100),
     gananciaChino: gananciaMonto * (clampPct(pricing.gananciaChinoPct) / 100),
     gananciaFlavio: gananciaMonto * (clampPct(pricing.gananciaFlavioPct) / 100),
+  };
+}
+
+export function normalizeCotizacionPricingResumen(
+  value: unknown,
+): CotizacionPricingResumen {
+  if (!value || typeof value !== "object") {
+    return { ...DEFAULT_COTIZACION_PRICING_RESUMEN };
+  }
+
+  const raw = value as Record<string, unknown>;
+  const num = (key: string): number => {
+    const n = Number(raw[key]);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  return {
+    precioCosto: num("precioCosto"),
+    precioMinimo: nonNegativeMoney(num("precioMinimo")),
+    precioVenta: nonNegativeMoney(num("precioVenta")),
+    reinversionMonto: num("reinversionMonto"),
+    gananciaMonto: num("gananciaMonto"),
+    gananciaFernando: num("gananciaFernando"),
+    gananciaChino: num("gananciaChino"),
+    gananciaFlavio: num("gananciaFlavio"),
+  };
+}
+
+export function toCotizacionPricingResumen(
+  breakdown: CotizacionPricingBreakdown,
+): CotizacionPricingResumen {
+  return {
+    precioCosto: breakdown.precioCosto,
+    precioMinimo: breakdown.precioMinimo,
+    precioVenta: breakdown.precioVenta,
+    reinversionMonto: breakdown.reinversionMonto,
+    gananciaMonto: breakdown.gananciaMonto,
+    gananciaFernando: breakdown.gananciaFernando,
+    gananciaChino: breakdown.gananciaChino,
+    gananciaFlavio: breakdown.gananciaFlavio,
   };
 }

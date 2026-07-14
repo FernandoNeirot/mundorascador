@@ -4,18 +4,37 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import CotizacionEditor from "@/components/admin/CotizacionEditor";
 import CotizacionList from "@/components/admin/CotizacionList";
-import { buildQuoteProductOptions } from "@/lib/materials/quote-products";
+import { getMaterialesTotal } from "@/components/admin/CotizacionList";
+import EnsambleCotizadorSection from "@/components/admin/EnsambleCotizadorSection";
 import { cloneCotizacionMateriales } from "@/lib/cotizador/clone-materiales";
 import { isCotizacionOwnedBy } from "@/lib/cotizador/permissions";
-import { DEFAULT_COTIZACION_PRICING } from "@/lib/cotizador/pricing";
-import EnsambleCotizadorSection from "@/components/admin/EnsambleCotizadorSection";
+import {
+  computeCotizacionPricingBreakdown,
+  DEFAULT_COTIZACION_PRICING,
+  DEFAULT_COTIZACION_PRICING_RESUMEN,
+  normalizeCotizacionPricing,
+  normalizeCotizacionPricingResumen,
+  toCotizacionPricingResumen,
+} from "@/lib/cotizador/pricing";
 import type { Cotizacion, CotizacionPricing } from "@/lib/cotizador/types";
 import type { Ensamble } from "@/lib/ensamble/types";
 import type { CommittedQuoteLine } from "@/lib/materials/quote-line";
+import {
+  buildQuoteProductOptions,
+  type QuoteProductOption,
+} from "@/lib/materials/quote-products";
 import type { StockEntry } from "@/lib/materials/types";
 import { useTenantPaths } from "@/lib/tenant/context";
 
 const DRAFT_ID = "__draft__";
+
+function normalizeCotizacion(cotizacion: Cotizacion): Cotizacion {
+  return {
+    ...cotizacion,
+    pricing: normalizeCotizacionPricing(cotizacion.pricing),
+    pricingResumen: normalizeCotizacionPricingResumen(cotizacion.pricingResumen),
+  };
+}
 
 function createDraftCotizacion(): Cotizacion {
   const now = new Date().toISOString();
@@ -25,10 +44,23 @@ function createDraftCotizacion(): Cotizacion {
     descripcion: "",
     materiales: [],
     pricing: { ...DEFAULT_COTIZACION_PRICING },
+    pricingResumen: { ...DEFAULT_COTIZACION_PRICING_RESUMEN },
     createdAt: now,
     updatedAt: now,
     createdBy: "",
   };
+}
+
+function buildPricingPayload(
+  cotizacion: Cotizacion,
+  productMap: Map<string, QuoteProductOption>,
+) {
+  const pricing = normalizeCotizacionPricing(cotizacion.pricing);
+  const precioCosto = getMaterialesTotal(cotizacion.materiales, productMap);
+  const pricingResumen = toCotizacionPricingResumen(
+    computeCotizacionPricingBreakdown(precioCosto, pricing),
+  );
+  return { pricing, pricingResumen };
 }
 
 type CotizadorProps = {
@@ -57,8 +89,9 @@ export default function Cotizador({
     [products],
   );
 
-  const [cotizaciones, setCotizaciones] =
-    useState<Cotizacion[]>(initialCotizaciones);
+  const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>(() =>
+    initialCotizaciones.map(normalizeCotizacion),
+  );
   const [draftCotizacion, setDraftCotizacion] = useState<Cotizacion | null>(
     null,
   );
@@ -177,11 +210,16 @@ export default function Cotizador({
     setSaving(true);
     setError(null);
 
+    const { pricing, pricingResumen } = buildPricingPayload(
+      selected,
+      productMap,
+    );
     const payload = {
       nombre: selected.nombre,
       descripcion: selected.descripcion,
       materiales: selected.materiales,
-      pricing: selected.pricing,
+      pricing,
+      pricingResumen,
     };
 
     try {
@@ -198,9 +236,10 @@ export default function Cotizador({
           return;
         }
 
-        setCotizaciones((current) => [data, ...current]);
+        const saved = normalizeCotizacion(data);
+        setCotizaciones((current) => [saved, ...current]);
         setDraftCotizacion(null);
-        setSelectedId(data.id);
+        setSelectedId(saved.id);
         setDirty(false);
         return;
       }
@@ -217,9 +256,10 @@ export default function Cotizador({
         return;
       }
 
+      const saved = normalizeCotizacion(data);
       setCotizaciones((current) =>
         current.map((cotizacion) =>
-          cotizacion.id === data.id ? data : cotizacion,
+          cotizacion.id === saved.id ? saved : cotizacion,
         ),
       );
       setDirty(false);
@@ -252,11 +292,20 @@ export default function Cotizador({
     setError(null);
 
     const baseName = source.nombre.trim() || "Cotización";
+    const materiales = cloneCotizacionMateriales(source.materiales);
+    const pricingPayload = buildPricingPayload(
+      {
+        ...source,
+        materiales,
+        pricing: normalizeCotizacionPricing(source.pricing),
+      },
+      productMap,
+    );
     const payload = {
       nombre: `${baseName} (copia)`,
       descripcion: source.descripcion,
-      materiales: cloneCotizacionMateriales(source.materiales),
-      pricing: { ...source.pricing },
+      materiales,
+      ...pricingPayload,
     };
 
     try {
@@ -272,9 +321,10 @@ export default function Cotizador({
         return;
       }
 
-      setCotizaciones((current) => [data, ...current]);
+      const saved = normalizeCotizacion(data);
+      setCotizaciones((current) => [saved, ...current]);
       setDraftCotizacion(null);
-      setSelectedId(data.id);
+      setSelectedId(saved.id);
       setDirty(false);
     } catch {
       setError("Error de conexión al duplicar la cotización.");

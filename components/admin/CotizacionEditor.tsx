@@ -9,6 +9,7 @@ import {
   complementaryMarginPcts,
   complementarySharePcts,
   computeCotizacionPricingBreakdown,
+  DEFAULT_COTIZACION_PRICING,
 } from "@/lib/cotizador/pricing";
 import type { Cotizacion, CotizacionPricing } from "@/lib/cotizador/types";
 import { formatPrice } from "@/lib/materials/format";
@@ -86,7 +87,7 @@ export default function CotizacionEditor({
     useState<CommittedQuoteLine | null>(null);
 
   const materiales = cotizacion.materiales;
-  const pricing = cotizacion.pricing;
+  const pricing = cotizacion.pricing ?? DEFAULT_COTIZACION_PRICING;
 
   const totalCost = getMaterialesTotal(materiales, productMap);
   const breakdown = useMemo(

@@ -2,7 +2,9 @@ import { getFirestore, type DocumentData } from "firebase-admin/firestore";
 import { getFirebaseAdmin } from "@/lib/firebase/admin";
 import {
   DEFAULT_COTIZACION_PRICING,
+  DEFAULT_COTIZACION_PRICING_RESUMEN,
   normalizeCotizacionPricing,
+  normalizeCotizacionPricingResumen,
 } from "./pricing";
 import type {
   Cotizacion,
@@ -22,20 +24,21 @@ function isValidCotizacion(value: unknown): value is Cotizacion {
     Array.isArray(doc.materiales) &&
     typeof doc.createdAt === "string" &&
     typeof doc.updatedAt === "string" &&
-    typeof doc.createdBy === "string" &&
-    doc.pricing !== undefined &&
-    typeof doc.pricing === "object"
+    typeof doc.createdBy === "string"
   );
 }
 
 function docToCotizacion(id: string, data: DocumentData): Cotizacion | null {
-  const normalized = {
+  const normalized: Cotizacion = {
     id,
-    ...data,
+    nombre: typeof data.nombre === "string" ? data.nombre : "",
+    descripcion: typeof data.descripcion === "string" ? data.descripcion : "",
     materiales: Array.isArray(data.materiales) ? data.materiales : [],
-    descripcion:
-      typeof data.descripcion === "string" ? data.descripcion : "",
     pricing: normalizeCotizacionPricing(data.pricing),
+    pricingResumen: normalizeCotizacionPricingResumen(data.pricingResumen),
+    createdAt: typeof data.createdAt === "string" ? data.createdAt : "",
+    updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : "",
+    createdBy: typeof data.createdBy === "string" ? data.createdBy : "",
   };
 
   return isValidCotizacion(normalized) ? normalized : null;
@@ -82,6 +85,9 @@ export function createQuoteStorage(collectionName: string) {
       pricing: normalizeCotizacionPricing(
         input.pricing ?? DEFAULT_COTIZACION_PRICING,
       ),
+      pricingResumen: normalizeCotizacionPricingResumen(
+        input.pricingResumen ?? DEFAULT_COTIZACION_PRICING_RESUMEN,
+      ),
       createdAt: now,
       updatedAt: now,
       createdBy,
@@ -100,11 +106,17 @@ export function createQuoteStorage(collectionName: string) {
 
     const updated: Cotizacion = {
       ...existing,
-      ...input,
+      nombre: input.nombre ?? existing.nombre,
+      descripcion: input.descripcion ?? existing.descripcion,
+      materiales: input.materiales ?? existing.materiales,
       pricing:
         input.pricing !== undefined
           ? normalizeCotizacionPricing(input.pricing)
           : existing.pricing,
+      pricingResumen:
+        input.pricingResumen !== undefined
+          ? normalizeCotizacionPricingResumen(input.pricingResumen)
+          : existing.pricingResumen,
       createdBy: existing.createdBy,
       updatedAt: new Date().toISOString(),
     };

@@ -1,10 +1,14 @@
 import type {
   CotizacionMaterial,
   CotizacionPricing,
+  CotizacionPricingResumen,
   CreateCotizacionInput,
   UpdateCotizacionInput,
 } from "./types";
-import { normalizeCotizacionPricing } from "./pricing";
+import {
+  normalizeCotizacionPricing,
+  normalizeCotizacionPricingResumen,
+} from "./pricing";
 
 type ValidationResult<T> =
   | { ok: true; data: T }
@@ -78,6 +82,16 @@ function parseOptionalPricing(
   return normalizeCotizacionPricing(value);
 }
 
+function parseOptionalPricingResumen(
+  value: unknown,
+): CotizacionPricingResumen | string | undefined {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== "object") {
+    return "pricingResumen inválido.";
+  }
+  return normalizeCotizacionPricingResumen(value);
+}
+
 export function validateCreateCotizacion(
   body: unknown,
 ): ValidationResult<CreateCotizacionInput> {
@@ -101,13 +115,20 @@ export function validateCreateCotizacion(
     return { ok: false, error: pricing };
   }
 
+  const pricingResumen = parseOptionalPricingResumen(input.pricingResumen);
+  if (typeof pricingResumen === "string") {
+    return { ok: false, error: pricingResumen };
+  }
+
   return {
     ok: true,
     data: {
       nombre,
       descripcion: parseOptionalString(input.descripcion),
       materiales,
-      ...(pricing ? { pricing } : {}),
+      pricing: pricing ?? normalizeCotizacionPricing(undefined),
+      pricingResumen:
+        pricingResumen ?? normalizeCotizacionPricingResumen(undefined),
     },
   };
 }
@@ -150,11 +171,20 @@ export function validateUpdateCotizacion(
     if (pricing) data.pricing = pricing;
   }
 
+  if (input.pricingResumen !== undefined) {
+    const pricingResumen = parseOptionalPricingResumen(input.pricingResumen);
+    if (typeof pricingResumen === "string") {
+      return { ok: false, error: pricingResumen };
+    }
+    if (pricingResumen) data.pricingResumen = pricingResumen;
+  }
+
   if (
     data.nombre === undefined &&
     data.descripcion === undefined &&
     data.materiales === undefined &&
-    data.pricing === undefined
+    data.pricing === undefined &&
+    data.pricingResumen === undefined
   ) {
     return { ok: false, error: "No hay cambios para guardar." };
   }
