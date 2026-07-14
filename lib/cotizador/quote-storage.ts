@@ -1,5 +1,9 @@
 import { getFirestore, type DocumentData } from "firebase-admin/firestore";
 import { getFirebaseAdmin } from "@/lib/firebase/admin";
+import {
+  DEFAULT_COTIZACION_PRICING,
+  normalizeCotizacionPricing,
+} from "./pricing";
 import type {
   Cotizacion,
   CreateCotizacionInput,
@@ -18,7 +22,9 @@ function isValidCotizacion(value: unknown): value is Cotizacion {
     Array.isArray(doc.materiales) &&
     typeof doc.createdAt === "string" &&
     typeof doc.updatedAt === "string" &&
-    typeof doc.createdBy === "string"
+    typeof doc.createdBy === "string" &&
+    doc.pricing !== undefined &&
+    typeof doc.pricing === "object"
   );
 }
 
@@ -29,6 +35,7 @@ function docToCotizacion(id: string, data: DocumentData): Cotizacion | null {
     materiales: Array.isArray(data.materiales) ? data.materiales : [],
     descripcion:
       typeof data.descripcion === "string" ? data.descripcion : "",
+    pricing: normalizeCotizacionPricing(data.pricing),
   };
 
   return isValidCotizacion(normalized) ? normalized : null;
@@ -72,6 +79,9 @@ export function createQuoteStorage(collectionName: string) {
       nombre: input.nombre,
       descripcion: input.descripcion,
       materiales: input.materiales ?? [],
+      pricing: normalizeCotizacionPricing(
+        input.pricing ?? DEFAULT_COTIZACION_PRICING,
+      ),
       createdAt: now,
       updatedAt: now,
       createdBy,
@@ -91,6 +101,10 @@ export function createQuoteStorage(collectionName: string) {
     const updated: Cotizacion = {
       ...existing,
       ...input,
+      pricing:
+        input.pricing !== undefined
+          ? normalizeCotizacionPricing(input.pricing)
+          : existing.pricing,
       createdBy: existing.createdBy,
       updatedAt: new Date().toISOString(),
     };

@@ -1,8 +1,10 @@
 import type {
   CotizacionMaterial,
+  CotizacionPricing,
   CreateCotizacionInput,
   UpdateCotizacionInput,
 } from "./types";
+import { normalizeCotizacionPricing } from "./pricing";
 
 type ValidationResult<T> =
   | { ok: true; data: T }
@@ -66,6 +68,16 @@ export function parseMateriales(value: unknown): CotizacionMaterial[] | string {
   return materiales;
 }
 
+function parseOptionalPricing(
+  value: unknown,
+): CotizacionPricing | string | undefined {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== "object") {
+    return "pricing inválido.";
+  }
+  return normalizeCotizacionPricing(value);
+}
+
 export function validateCreateCotizacion(
   body: unknown,
 ): ValidationResult<CreateCotizacionInput> {
@@ -84,12 +96,18 @@ export function validateCreateCotizacion(
     return { ok: false, error: materiales };
   }
 
+  const pricing = parseOptionalPricing(input.pricing);
+  if (typeof pricing === "string") {
+    return { ok: false, error: pricing };
+  }
+
   return {
     ok: true,
     data: {
       nombre,
       descripcion: parseOptionalString(input.descripcion),
       materiales,
+      ...(pricing ? { pricing } : {}),
     },
   };
 }
@@ -124,10 +142,19 @@ export function validateUpdateCotizacion(
     data.materiales = materiales;
   }
 
+  if (input.pricing !== undefined) {
+    const pricing = parseOptionalPricing(input.pricing);
+    if (typeof pricing === "string") {
+      return { ok: false, error: pricing };
+    }
+    if (pricing) data.pricing = pricing;
+  }
+
   if (
     data.nombre === undefined &&
     data.descripcion === undefined &&
-    data.materiales === undefined
+    data.materiales === undefined &&
+    data.pricing === undefined
   ) {
     return { ok: false, error: "No hay cambios para guardar." };
   }

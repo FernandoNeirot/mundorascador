@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import AddQuoteLineDialog from "@/components/admin/AddQuoteLineDialog";
 import QuoteLinesTable from "@/components/admin/QuoteLinesTable";
 import { getMaterialesTotal } from "@/components/admin/CotizacionList";
+import { computeCotizacionPricingBreakdown } from "@/lib/cotizador/pricing";
+import type { Cotizacion, CotizacionPricing } from "@/lib/cotizador/types";
 import { formatPrice } from "@/lib/materials/format";
-import type { Cotizacion } from "@/lib/cotizador/types";
 import {
   findPairedLine,
   type CommittedQuoteLine,
@@ -32,11 +33,26 @@ type CotizacionEditorProps = {
   onNombreChange: (nombre: string) => void;
   onDescripcionChange: (descripcion: string) => void;
   onMaterialesChange: (materiales: CommittedQuoteLine[]) => void;
+  onPricingChange: (pricing: CotizacionPricing) => void;
   onSave: () => void;
   onDelete: () => void;
+  onDuplicate?: () => void;
+  duplicating?: boolean;
   onClose?: () => void;
   inModal?: boolean;
 };
+
+function parseMoneyInput(value: string): number {
+  const cleaned = value.replace(/,/g, ".").replace(/[^\d.]/g, "");
+  const n = Number(cleaned);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function parsePctInput(value: string): number {
+  const n = Number(value.replace(/,/g, "."));
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(100, Math.max(0, n));
+}
 
 export default function CotizacionEditor({
   cotizacion,
@@ -52,8 +68,11 @@ export default function CotizacionEditor({
   onNombreChange,
   onDescripcionChange,
   onMaterialesChange,
+  onPricingChange,
   onSave,
   onDelete,
+  onDuplicate,
+  duplicating = false,
   onClose,
   inModal = false,
 }: CotizacionEditorProps) {
@@ -68,8 +87,17 @@ export default function CotizacionEditor({
     useState<CommittedQuoteLine | null>(null);
 
   const materiales = cotizacion.materiales;
+  const pricing = cotizacion.pricing;
 
   const totalCost = getMaterialesTotal(materiales, productMap);
+  const breakdown = useMemo(
+    () => computeCotizacionPricingBreakdown(totalCost, pricing),
+    [totalCost, pricing],
+  );
+
+  const patchPricing = (patch: Partial<CotizacionPricing>) => {
+    onPricingChange({ ...pricing, ...patch });
+  };
 
   const removeLinesFromQuote = (ids: Set<string>) => {
     onMaterialesChange(materiales.filter((line) => !ids.has(line.id)));
@@ -172,6 +200,16 @@ export default function CotizacionEditor({
               Cerrar
             </button>
           )}
+          {onDuplicate && !isDraft && (
+            <button
+              type="button"
+              onClick={onDuplicate}
+              disabled={duplicating || saving || deleting}
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-amber-300 px-4 text-sm font-medium text-amber-800 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/30"
+            >
+              {duplicating ? "Duplicando..." : "Duplicar"}
+            </button>
+          )}
           {canWrite && (
             <>
               <button
@@ -195,7 +233,7 @@ export default function CotizacionEditor({
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
         <label className={labelClassName}>
           Nombre
           <input
@@ -209,18 +247,18 @@ export default function CotizacionEditor({
         </label>
         <label className={labelClassName}>
           Descripción
-          <textarea
+          <input
+            type="text"
             value={cotizacion.descripcion}
             onChange={(event) => onDescripcionChange(event.target.value)}
             readOnly={!canWrite}
-            rows={3}
             placeholder="Detalle del producto a cotizar..."
-            className={`${inputClassName} min-h-[96px] resize-y`}
+            className={inputClassName}
           />
         </label>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-6 dark:border-zinc-800">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-800">
         <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
           Materiales
           {materiales.length > 0 && (
@@ -248,13 +286,215 @@ export default function CotizacionEditor({
         readOnly={!canWrite}
       />
 
-      <div className="mt-6 flex justify-end border-t border-zinc-200 pt-6 dark:border-zinc-800">
-        <div className="text-right">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Costo total</p>
-          <p className="text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-50">
-            {formatPrice(totalCost)}
-          </p>
-        </div>
+      <div className="mt-6 grid gap-4 border-t border-zinc-200 pt-6 dark:border-zinc-800 sm:grid-cols-2">
+        <p className="text-sm font-medium text-zinc-900 sm:col-span-2 dark:text-zinc-50">
+          Precios y márgenes
+        </p>
+        <label className={`${labelClassName} sm:col-span-2`}>
+          Precio costo
+          <input
+            type="text"
+            value={formatPrice(breakdown.precioCosto)}
+            readOnly
+            tabIndex={-1}
+            className={`${inputClassName} cursor-not-allowed bg-zinc-50 text-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300`}
+          />
+          <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
+            Se completa solo con la suma de los materiales.
+          </span>
+        </label>
+        <label className={labelClassName}>
+          Precio mínimo
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            value={pricing.precioMinimo || ""}
+            onChange={(event) =>
+              patchPricing({ precioMinimo: parseMoneyInput(event.target.value) })
+            }
+            readOnly={!canWrite}
+            placeholder="0"
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          Precio venta
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            value={pricing.precioVenta || ""}
+            onChange={(event) =>
+              patchPricing({ precioVenta: parseMoneyInput(event.target.value) })
+            }
+            readOnly={!canWrite}
+            placeholder="0"
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          % Reinversión
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={0.01}
+            value={pricing.reinversionPct || ""}
+            onChange={(event) =>
+              patchPricing({
+                reinversionPct: parsePctInput(event.target.value),
+              })
+            }
+            readOnly={!canWrite}
+            placeholder="0"
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          % Ganancia
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={0.01}
+            value={pricing.gananciaPct || ""}
+            onChange={(event) =>
+              patchPricing({ gananciaPct: parsePctInput(event.target.value) })
+            }
+            readOnly={!canWrite}
+            placeholder="0"
+            className={inputClassName}
+          />
+        </label>
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <label className={labelClassName}>
+          % Ganancia Fernando
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={0.01}
+            value={pricing.gananciaFernandoPct || ""}
+            onChange={(event) =>
+              patchPricing({
+                gananciaFernandoPct: parsePctInput(event.target.value),
+              })
+            }
+            readOnly={!canWrite}
+            placeholder="0"
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          % Ganancia Chino
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={0.01}
+            value={pricing.gananciaChinoPct || ""}
+            onChange={(event) =>
+              patchPricing({
+                gananciaChinoPct: parsePctInput(event.target.value),
+              })
+            }
+            readOnly={!canWrite}
+            placeholder="0"
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          % Ganancia Flavio
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={0.01}
+            value={pricing.gananciaFlavioPct || ""}
+            onChange={(event) =>
+              patchPricing({
+                gananciaFlavioPct: parsePctInput(event.target.value),
+              })
+            }
+            readOnly={!canWrite}
+            placeholder="0"
+            className={inputClassName}
+          />
+        </label>
+      </div>
+
+      <div className="mt-6 border-t border-zinc-200 pt-6 dark:border-zinc-800">
+        <p className="mb-3 text-sm font-medium text-zinc-900 dark:text-zinc-50">
+          Resumen de precios
+        </p>
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900/50">
+            <dt className="text-zinc-600 dark:text-zinc-400">Precio costo</dt>
+            <dd className="tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
+              {formatPrice(breakdown.precioCosto)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900/50">
+            <dt className="text-zinc-600 dark:text-zinc-400">Precio mínimo</dt>
+            <dd className="tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
+              {formatPrice(breakdown.precioMinimo)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900/50">
+            <dt className="text-zinc-600 dark:text-zinc-400">Precio venta</dt>
+            <dd className="tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
+              {formatPrice(breakdown.precioVenta)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900/50">
+            <dt className="text-zinc-600 dark:text-zinc-400">
+              Reinversión ({pricing.reinversionPct}%)
+            </dt>
+            <dd className="tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
+              {formatPrice(breakdown.reinversionMonto)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900/50 sm:col-span-2">
+            <dt className="text-zinc-600 dark:text-zinc-400">
+              Ganancia ({pricing.gananciaPct}%)
+            </dt>
+            <dd className="tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
+              {formatPrice(breakdown.gananciaMonto)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/20">
+            <dt className="text-zinc-700 dark:text-zinc-300">
+              Fernando ({pricing.gananciaFernandoPct}%)
+            </dt>
+            <dd className="tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
+              {formatPrice(breakdown.gananciaFernando)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/20">
+            <dt className="text-zinc-700 dark:text-zinc-300">
+              Chino ({pricing.gananciaChinoPct}%)
+            </dt>
+            <dd className="tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
+              {formatPrice(breakdown.gananciaChino)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/20 sm:col-span-2">
+            <dt className="text-zinc-700 dark:text-zinc-300">
+              Flavio ({pricing.gananciaFlavioPct}%)
+            </dt>
+            <dd className="tabular-nums font-medium text-zinc-900 dark:text-zinc-50">
+              {formatPrice(breakdown.gananciaFlavio)}
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          Reinversión y ganancia se calculan sobre (precio venta − precio
+          costo). El reparto entre Fernando, Chino y Flavio se aplica sobre el
+          monto de ganancia.
+        </p>
       </div>
 
       {error && (

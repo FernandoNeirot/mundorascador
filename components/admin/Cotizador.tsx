@@ -5,9 +5,11 @@ import { useMemo, useState } from "react";
 import CotizacionEditor from "@/components/admin/CotizacionEditor";
 import CotizacionList from "@/components/admin/CotizacionList";
 import { buildQuoteProductOptions } from "@/lib/materials/quote-products";
+import { cloneCotizacionMateriales } from "@/lib/cotizador/clone-materiales";
 import { isCotizacionOwnedBy } from "@/lib/cotizador/permissions";
+import { DEFAULT_COTIZACION_PRICING } from "@/lib/cotizador/pricing";
 import EnsambleCotizadorSection from "@/components/admin/EnsambleCotizadorSection";
-import type { Cotizacion } from "@/lib/cotizador/types";
+import type { Cotizacion, CotizacionPricing } from "@/lib/cotizador/types";
 import type { Ensamble } from "@/lib/ensamble/types";
 import type { CommittedQuoteLine } from "@/lib/materials/quote-line";
 import type { StockEntry } from "@/lib/materials/types";
@@ -22,6 +24,7 @@ function createDraftCotizacion(): Cotizacion {
     nombre: "",
     descripcion: "",
     materiales: [],
+    pricing: { ...DEFAULT_COTIZACION_PRICING },
     createdAt: now,
     updatedAt: now,
     createdBy: "",
@@ -63,6 +66,7 @@ export default function Cotizador({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isDraft = selectedId === DRAFT_ID;
@@ -177,6 +181,7 @@ export default function Cotizador({
       nombre: selected.nombre,
       descripcion: selected.descripcion,
       materiales: selected.materiales,
+      pricing: selected.pricing,
     };
 
     try {
@@ -226,6 +231,55 @@ export default function Cotizador({
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDuplicate = async (sourceId: string) => {
+    if (!canWrite) return;
+
+    const source = cotizaciones.find((item) => item.id === sourceId);
+    if (!source) return;
+
+    const sourceName = source.nombre.trim() || "esta cotización";
+    const confirmed = window.confirm(
+      dirty
+        ? `Hay cambios sin guardar. ¿Duplicar "${sourceName}" igual? La copia quedará a tu nombre para editarla.`
+        : `¿Duplicar "${sourceName}"? Se creará una copia a tu nombre para que puedas editarla.`,
+    );
+    if (!confirmed) return;
+
+    setDuplicatingId(sourceId);
+    setError(null);
+
+    const baseName = source.nombre.trim() || "Cotización";
+    const payload = {
+      nombre: `${baseName} (copia)`,
+      descripcion: source.descripcion,
+      materiales: cloneCotizacionMateriales(source.materiales),
+      pricing: { ...source.pricing },
+    };
+
+    try {
+      const response = await fetch(cotizadorApi, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error ?? "No se pudo duplicar la cotización.");
+        return;
+      }
+
+      setCotizaciones((current) => [data, ...current]);
+      setDraftCotizacion(null);
+      setSelectedId(data.id);
+      setDirty(false);
+    } catch {
+      setError("Error de conexión al duplicar la cotización.");
+    } finally {
+      setDuplicatingId(null);
     }
   };
 
@@ -316,8 +370,10 @@ export default function Cotizador({
           productMap={productMap}
           canWrite={canWrite}
           currentUsername={currentUsername}
+          duplicatingId={duplicatingId}
           onOpen={handleOpen}
           onCreate={handleCreate}
+          onDuplicate={handleDuplicate}
         />
       )}
 
@@ -341,12 +397,17 @@ export default function Cotizador({
                 canWrite={canEditSelected}
                 viewOnlyNote={
                   !canEditSelected && !isDraft && canWrite
-                    ? "Solo podés editar tus propias cotizaciones."
+                    ? "Solo podés editar tus propias cotizaciones. Usá Duplicar para crear una copia tuya."
                     : undefined
                 }
                 dirty={dirty}
                 saving={saving}
                 deleting={deleting}
+                duplicating={
+                  !isDraft && selected
+                    ? duplicatingId === selected.id
+                    : false
+                }
                 isDraft={isDraft}
                 error={error}
                 inModal
@@ -358,8 +419,16 @@ export default function Cotizador({
                 onMaterialesChange={(materiales: CommittedQuoteLine[]) =>
                   updateSelected({ materiales })
                 }
+                onPricingChange={(pricing: CotizacionPricing) =>
+                  updateSelected({ pricing })
+                }
                 onSave={handleSave}
                 onDelete={handleDelete}
+                onDuplicate={
+                  canWrite && !isDraft && selected
+                    ? () => handleDuplicate(selected.id)
+                    : undefined
+                }
               />
             </div>
           </div>

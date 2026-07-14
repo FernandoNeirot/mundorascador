@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import AddStockDialog from "@/components/admin/AddStockDialog";
+import StockInvestmentReport from "@/components/admin/StockInvestmentReport";
 import StockInventoryTable from "@/components/admin/StockInventoryTable";
 import type { StockEntry } from "@/lib/materials/types";
 import { useTenantPaths } from "@/lib/tenant/context";
@@ -100,6 +101,8 @@ export default function StockManager({
             )}
           </div>
         </div>
+
+        <StockInvestmentReport entries={entries} />
 
         <StockInventoryTable
           entries={entries}
